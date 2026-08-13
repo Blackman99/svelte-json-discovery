@@ -25,7 +25,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Create release PR or publish to npm
-        uses: changesets/action@v1
+        uses: changesets/action@v1.9.0
         with:
           publish: pnpm release
           version: pnpm version-packages

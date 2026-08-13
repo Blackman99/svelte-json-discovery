@@ -1,11 +1,10 @@
-<script lang="ts">
+<script lang='ts'>
     import { JsonViewer } from 'svelte-json-discovery';
-    import CodeBlock from './lib/CodeBlock.svelte';
+    import { actionsDemo, bigArray, nested, quickStart, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
-    import PropsTable from './lib/PropsTable.svelte';
     import Playground from './lib/Playground.svelte';
+    import PropsTable from './lib/PropsTable.svelte';
     import { theme, toggleTheme } from './lib/theme.svelte.js';
-    import { quickStart, nested, bigArray, strings, searchable, specialTypes, actionsDemo, themedData } from './lib/data.js';
 
     const repo = 'https://github.com/Blackman99/svelte-json-discovery';
     const t = $derived(theme.current);
@@ -31,8 +30,10 @@
         ['theming', 'Theming'],
         ['playground', 'Playground'],
         ['api', 'Props'],
-        ['credits', 'Credits']
+        ['credits', 'Credits'],
     ];
+
+    const installCode = 'npm  install svelte-json-discovery\npnpm add     svelte-json-discovery\nyarn add     svelte-json-discovery';
 
     const quickStartCode = `<script>
   import { JsonViewer } from 'svelte-json-discovery';
@@ -81,67 +82,67 @@
 <JsonViewer data={data} theme="auto" /> <!-- follows prefers-color-scheme -->`;
 </script>
 
-<header class="site-head">
-    <a class="brand" href="#top">
-        <img src="./logo.svg" alt="" width="30" height="30" />
-        <span class="brand-name">svelte<i>-</i>json<i>-</i>discovery</span>
+<header class='site-head'>
+    <a class='brand' href='#top'>
+        <img src='./logo.svg' alt="" width='30' height='30' />
+        <span class='brand-name'>svelte<i>-</i>json<i>-</i>discovery</span>
     </a>
-    <nav class="head-links">
-        <a href="https://www.npmjs.com/package/svelte-json-discovery" target="_blank" rel="noreferrer">npm</a>
-        <a href={repo} target="_blank" rel="noreferrer">GitHub</a>
-        <button class="theme-btn" onclick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
+    <nav class='head-links'>
+        <a href='https://www.npmjs.com/package/svelte-json-discovery' target='_blank' rel='noreferrer'>npm</a>
+        <a href={repo} target='_blank' rel='noreferrer'>GitHub</a>
+        <button class='theme-btn' onclick={toggleTheme} title='Toggle theme' aria-label='Toggle theme'>
             {t === 'dark' ? '☀' : '☾'}
         </button>
     </nav>
 </header>
 
-<div class="shell" id="top">
-    <aside class="side">
-        <nav aria-label="Sections">
-            <span class="side-title">Contents</span>
-            {#each navItems as [id, label]}
-                <a href="#{id}">{label}</a>
+<div class='shell' id='top'>
+    <aside class='side'>
+        <nav aria-label='Sections'>
+            <span class='side-title'>Contents</span>
+            {#each navItems as [id, label] (id)}
+                <a href='#{id}'>{label}</a>
             {/each}
         </nav>
     </aside>
 
     <main>
         <!-- ——— hero ——— -->
-        <section class="hero">
-            <p class="eyebrow reveal" style="--d: 0">Svelte 5 component · ported from discovery.js</p>
-            <h1 class="reveal" style="--d: 1">Point a <em>lens</em> at your JSON.</h1>
-            <p class="lede reveal" style="--d: 2">
+        <section class='hero'>
+            <p class='eyebrow reveal' style='--d: 0'>Svelte 5 component · ported from discovery.js</p>
+            <h1 class='reveal' style='--d: 1'>Point a <em>lens</em> at your JSON.</h1>
+            <p class='lede reveal' style='--d: 2'>
                 The <code>struct</code> view from
-                <a href="https://github.com/discoveryjs/discovery" target="_blank" rel="noreferrer">discoveryjs/discovery</a>
+                <a href='https://github.com/discoveryjs/discovery' target='_blank' rel='noreferrer'>discoveryjs/discovery</a>
                 — the interactive JSON tree with type-aware previews, pagination and copy actions —
                 extracted into a standalone, dependency-free Svelte component.
             </p>
-            <div class="hero-actions reveal" style="--d: 3">
-                <button class="install-pill" onclick={copyInstall}>
-                    <span class="dollar">$</span> pnpm add svelte-json-discovery
-                    <span class="pill-copy">{installCopied ? '✓' : '⧉'}</span>
+            <div class='hero-actions reveal' style='--d: 3'>
+                <button class='install-pill' onclick={copyInstall}>
+                    <span class='dollar'>$</span> pnpm add svelte-json-discovery
+                    <span class='pill-copy'>{installCopied ? '✓' : '⧉'}</span>
                 </button>
-                <a class="ghost-btn" href={repo} target="_blank" rel="noreferrer">Star on GitHub</a>
+                <a class='ghost-btn' href={repo} target='_blank' rel='noreferrer'>Star on GitHub</a>
             </div>
-            <div class="hero-demo reveal" style="--d: 4">
+            <div class='hero-demo reveal' style='--d: 4'>
                 <JsonViewer data={quickStart} expanded={2} theme={t} />
             </div>
         </section>
 
         <!-- ——— install ——— -->
         <Example
-            id="install"
-            title="Install"
-            intro="One peer dependency: <code>svelte ^5</code>. Nothing else ships with it."
-            code={'npm  install svelte-json-discovery\npnpm add     svelte-json-discovery\nyarn add     svelte-json-discovery'}
-            lang="bash"
+            id='install'
+            title='Install'
+            intro='One peer dependency: <code>svelte ^5</code>. Nothing else ships with it.'
+            code={installCode}
+            lang='bash'
         />
 
         <!-- ——— quick start ——— -->
         <Example
-            id="quick-start"
-            title="Quick start"
-            intro="Hand it any value. Objects and arrays become an explorable tree; every collapsed value shows a type-colored preview."
+            id='quick-start'
+            title='Quick start'
+            intro='Hand it any value. Objects and arrays become an explorable tree; every collapsed value shows a type-colored preview.'
             code={quickStartCode}
         >
             <JsonViewer data={quickStart} expanded={1} theme={t} />
@@ -149,22 +150,22 @@
 
         <!-- ——— expand depth ——— -->
         <Example
-            id="expand"
-            title="Expand depth"
-            intro="<code>expanded</code> controls how many levels open automatically. The original heuristics apply: long strings and arrays of numbers stay collapsed no matter the depth."
+            id='expand'
+            title='Expand depth'
+            intro='<code>expanded</code> controls how many levels open automatically. The original heuristics apply: long strings and arrays of numbers stay collapsed no matter the depth.'
             code={expandCode}
-            note="Click any preview to expand it; the <code>–</code> button collapses it back. Clicking a collapsed root block works anywhere in its padding, just like in discovery."
+            note='Click any preview to expand it; the <code>–</code> button collapses it back. Clicking a collapsed root block works anywhere in its padding, just like in discovery.'
         >
             <JsonViewer data={nested} expanded={3} theme={t} />
-            <div style="height: 10px"></div>
+            <div style='height: 10px'></div>
             <JsonViewer data={nested} expanded={0} theme={t} />
         </Example>
 
         <!-- ——— large data ——— -->
         <Example
-            id="large-data"
-            title="Large data"
-            intro="Collections render 50 entries at a time (configurable via <code>limit</code>) with <em>Show 50 more…</em> / <em>Show all the rest…</em> buttons, entry counters every ten rows, and size badges."
+            id='large-data'
+            title='Large data'
+            intro='Collections render 50 entries at a time (configurable via <code>limit</code>) with <em>Show 50 more…</em> / <em>Show all the rest…</em> buttons, entry counters every ten rows, and size badges.'
             code={largeCode}
             note="Expand <code>commits</code> and scroll — rendering stays snappy because off-screen entries simply don't exist yet."
         >
@@ -173,9 +174,9 @@
 
         <!-- ——— strings ——— -->
         <Example
-            id="strings"
-            title="Strings"
-            intro="Long or multi-line strings truncate with a character count and become expandable. Expanded strings show their length, escape control characters, and offer an <em>as text</em> toggle for the raw view. URLs turn into links."
+            id='strings'
+            title='Strings'
+            intro='Long or multi-line strings truncate with a character count and become expandable. Expanded strings show their length, escape control characters, and offer an <em>as text</em> toggle for the raw view. URLs turn into links.'
             code={stringsCode}
         >
             <JsonViewer data={strings} expanded={1} maxStringLength={80} theme={t} />
@@ -183,76 +184,76 @@
 
         <!-- ——— match highlighting ——— -->
         <Example
-            id="highlight"
-            title="Match highlighting"
-            intro="Pass a substring or <code>RegExp</code> as <code>match</code> and every occurrence lights up — in previews, in expanded strings, and even inside truncated strings, which slide their visible window to the first match."
+            id='highlight'
+            title='Match highlighting'
+            intro='Pass a substring or <code>RegExp</code> as <code>match</code> and every occurrence lights up — in previews, in expanded strings, and even inside truncated strings, which slide their visible window to the first match.'
             code={highlightCode}
         >
-            <input class="demo-input" bind:value={query} placeholder="type to highlight…" aria-label="Highlight query" />
+            <input class='demo-input' bind:value={query} placeholder='type to highlight…' aria-label='Highlight query' />
             <JsonViewer data={searchable} match={query.trim() === '' ? null : query} expanded={2} theme={t} />
         </Example>
 
         <!-- ——— special types ——— -->
         <Example
-            id="special-types"
-            title="Beyond JSON"
-            intro="Not just JSON: dates, regexps, sets, errors, typed arrays, bigints and functions all render with dedicated treatments, faithfully to the original view."
+            id='special-types'
+            title='Beyond JSON'
+            intro='Not just JSON: dates, regexps, sets, errors, typed arrays, bigints and functions all render with dedicated treatments, faithfully to the original view.'
             code={specialCode}
-            lang="ts"
+            lang='ts'
         >
             <JsonViewer data={specialTypes} expanded={1} theme={t} />
         </Example>
 
         <!-- ——— value actions ——— -->
         <Example
-            id="value-actions"
-            title="Value actions"
-            intro="Every expanded value grows a <code>ƒ</code> button: copy the path to that value (<code>package.exports.types</code>-style, quoting keys when needed), or copy the subtree as formatted / compact JSON — with byte sizes and circular-structure detection. Strings get quoted, unquoted and raw copy variants."
-            note="Try it: expand a node, press <code>ƒ</code>, then paste somewhere. Objects with unsorted keys also get a <code>keys ↓</code> toggle."
+            id='value-actions'
+            title='Value actions'
+            intro='Every expanded value grows a <code>ƒ</code> button: copy the path to that value (<code>package.exports.types</code>-style, quoting keys when needed), or copy the subtree as formatted / compact JSON — with byte sizes and circular-structure detection. Strings get quoted, unquoted and raw copy variants.'
+            note='Try it: expand a node, press <code>ƒ</code>, then paste somewhere. Objects with unsorted keys also get a <code>keys ↓</code> toggle.'
         >
             <JsonViewer data={actionsDemo} expanded={2} theme={t} />
         </Example>
 
         <!-- ——— theming ——— -->
         <Example
-            id="theming"
-            title="Theming"
-            intro="Three modes via the <code>theme</code> prop — <code>auto</code> follows <code>prefers-color-scheme</code>. The palette matches discovery exactly, and every <code>--discovery-fmt-*</code> / <code>--discovery-background-color</code> CSS custom property is honored, so the component drops into a discovery-themed app unchanged."
+            id='theming'
+            title='Theming'
+            intro='Three modes via the <code>theme</code> prop — <code>auto</code> follows <code>prefers-color-scheme</code>. The palette matches discovery exactly, and every <code>--discovery-fmt-*</code> / <code>--discovery-background-color</code> CSS custom property is honored, so the component drops into a discovery-themed app unchanged.'
             code={themingCode}
         >
-            <div class="theme-grid">
-                <JsonViewer data={themedData} expanded={2} theme="light" />
-                <JsonViewer data={themedData} expanded={2} theme="dark" />
+            <div class='theme-grid'>
+                <JsonViewer data={themedData} expanded={2} theme='light' />
+                <JsonViewer data={themedData} expanded={2} theme='dark' />
             </div>
         </Example>
 
         <!-- ——— playground ——— -->
         <Example
-            id="playground"
-            title="Playground"
-            intro="Paste your own JSON and poke at it. This is the same component instance you get from npm — the docs consume the package through the pnpm workspace."
+            id='playground'
+            title='Playground'
+            intro='Paste your own JSON and poke at it. This is the same component instance you get from npm — the docs consume the package through the pnpm workspace.'
         >
             <Playground />
         </Example>
 
         <!-- ——— props ——— -->
-        <section class="example" id="api">
+        <section class='example' id='api'>
             <h2>Props</h2>
-            <p class="intro-copy">All options mirror the original struct view config, defaults included.</p>
+            <p class='intro-copy'>All options mirror the original struct view config, defaults included.</p>
             <PropsTable />
         </section>
 
         <!-- ——— credits ——— -->
-        <footer id="credits">
-            <div class="rule"></div>
+        <footer id='credits'>
+            <div class='rule'></div>
             <p>
                 All rendering logic, styling and UX derive from
-                <a href="https://github.com/discoveryjs/discovery" target="_blank" rel="noreferrer">discoveryjs/discovery</a>
+                <a href='https://github.com/discoveryjs/discovery' target='_blank' rel='noreferrer'>discoveryjs/discovery</a>
                 (<code>src/views/struct</code>) by Roman Dvornov &amp; contributors — thank you.
                 Re-implemented as a Svelte 5 component. MIT licensed.
             </p>
-            <p class="fine">
-                Docs built with the component they document · <a href={repo} target="_blank" rel="noreferrer">source on GitHub</a>
+            <p class='fine'>
+                Docs built with the component they document · <a href={repo} target='_blank' rel='noreferrer'>source on GitHub</a>
             </p>
         </footer>
     </main>

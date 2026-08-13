@@ -2,23 +2,25 @@
 // Instead of building HTML strings it produces a token tree which is
 // rendered by Preview.svelte — no innerHTML involved.
 
-import { hasOwn, isArray, isError, isSet, matchAll, numParts, objectToString, stringifyIfNeeded } from './utils.js';
 import type { StructOptions } from './types.js';
+import { hasOwn, isArray, isError, matchAll, numParts, objectToString, stringifyIfNeeded } from './utils.js';
 
-export type Token = {
+export interface Token {
     cls?: string;
     text?: string;
     parts?: string[];
     href?: string;
     children?: Token[];
-};
+}
 
-const urlRx = /^(?:https?:)?\/\/(?:[a-z0-9\-]+(?:\.[a-z0-9\-]+)+|\d+(?:\.\d+){3})(?:\:\d+)?(?:\/\S*?)?$/i;
+// the original also listed an IPv4 alternative (`\d+(?:\.\d+){3}`),
+// which is a strict subset of the host pattern below
+const urlRx = /^(?:https?:)?\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?(?:\/\S*)?$/i;
 
 function more(num: number): Token {
     return {
         cls: 'more',
-        children: [{ text: '… ' }, { parts: numParts(num) }, { text: ' more' }]
+        children: [{ text: '… ' }, { parts: numParts(num) }, { text: ' more' }],
     };
 }
 
@@ -59,7 +61,7 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
                     if (offset > firstMatchOffset) {
                         return stop;
                     }
-                }
+                },
             );
 
             if (matches.length > 0) {
@@ -76,7 +78,8 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
                         prefix = { cls: 'more prefix', text: '' };
                         content.push({ text: prefixStr.slice(-prefixLength) });
                         budget -= gap;
-                    } else {
+                    }
+                    else {
                         content.push({ text: prefixStr });
                     }
                 }
@@ -114,7 +117,8 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
             content.push({ text: stringifyIfNeeded(value.slice(0, maxLength)) });
             rest = { cls: 'more suffix', parts: numParts(valueLength - maxLength) };
         }
-    } else if (options.match) {
+    }
+    else if (options.match) {
         matchAll(
             value,
             options.match,
@@ -123,9 +127,10 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
             },
             (text) => {
                 content.push({ cls: 'match', text: stringifyIfNeeded(text) });
-            }
+            },
         );
-    } else {
+    }
+    else {
         content.push({ text: stringifyIfNeeded(value) });
     }
 
@@ -138,7 +143,8 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
 
     if (asLink) {
         children.push({ href: value, children: content });
-    } else {
+    }
+    else {
         children.push(...content);
     }
 
@@ -274,13 +280,13 @@ export function valueTokens(value: unknown, compact: boolean, options: StructOpt
                         }
 
                         const property = key.length > options.maxCompactPropertyLength
-                            ? key.slice(0, options.maxCompactPropertyLength) + '…'
+                            ? `${key.slice(0, options.maxCompactPropertyLength)}…`
                             : key;
 
                         content.push(
                             { cls: 'property', text: property },
                             { text: ': ' },
-                            ...valueTokens((value as Record<string, unknown>)[key], true, options)
+                            ...valueTokens((value as Record<string, unknown>)[key], true, options),
                         );
                     }
 

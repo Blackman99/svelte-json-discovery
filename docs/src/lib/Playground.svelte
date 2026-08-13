@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang='ts'>
     import { JsonViewer } from 'svelte-json-discovery';
     import { theme } from './theme.svelte.js';
 
@@ -7,7 +7,7 @@
         edit: 'the JSON on the left',
         numbers: [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144],
         nested: { a: { b: { c: 'deep' } }, url: 'https://svelte.dev' },
-        long: 'This string is long enough to demonstrate truncation in previews and expansion behavior once it crosses the configured maximum string length threshold.'
+        long: 'This string is long enough to demonstrate truncation in previews and expansion behavior once it crosses the configured maximum string length threshold.',
     }, null, 2));
     let expanded = $state(2);
     let matchInput = $state('');
@@ -15,22 +15,23 @@
     const parsed = $derived.by(() => {
         try {
             return { ok: true as const, value: JSON.parse(source) };
-        } catch (e) {
+        }
+        catch (e) {
             return { ok: false as const, error: (e as Error).message };
         }
     });
 </script>
 
-<div class="playground">
-    <div class="input-pane">
-        <div class="pane-head">
+<div class='playground'>
+    <div class='input-pane'>
+        <div class='pane-head'>
             <span>json input</span>
-            <label>expanded <input type="number" min="0" max="10" bind:value={expanded} /></label>
-            <label>match <input type="text" placeholder="highlight…" bind:value={matchInput} /></label>
+            <label>expanded <input type='number' min='0' max='10' bind:value={expanded} /></label>
+            <label>match <input type='text' placeholder='highlight…' bind:value={matchInput} /></label>
         </div>
-        <textarea bind:value={source} spellcheck="false" aria-label="JSON input"></textarea>
+        <textarea bind:value={source} spellcheck='false' aria-label='JSON input'></textarea>
     </div>
-    <div class="output-pane">
+    <div class='output-pane'>
         {#if parsed.ok}
             <JsonViewer
                 data={parsed.value}
@@ -39,7 +40,7 @@
                 theme={theme.current}
             />
         {:else}
-            <div class="parse-error">⚠ {parsed.error}</div>
+            <div class='parse-error'>⚠ {parsed.error}</div>
         {/if}
     </div>
 </div>

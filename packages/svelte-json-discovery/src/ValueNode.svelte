@@ -2,17 +2,17 @@
      from discoveryjs/discovery src/views/struct/index.js.
      Template lines are kept tight (no whitespace between output nodes) since
      the markup is rendered in white-space sensitive contexts. -->
-<script lang="ts">
-    import { getContext } from 'svelte';
-    import ValueNode from './ValueNode.svelte';
-    import Preview from './Preview.svelte';
-    import { valueTokens } from './preview.js';
-    import { isSortedKeys, isValueExpandable, shouldAutoExpand, valueEntries } from './struct-helpers.js';
-    import { isArray, isSet, matchAll, numParts, stringifyIfNeeded } from './utils.js';
-    import { CONTEXT_KEY } from './types.js';
+<script lang='ts'>
     import type { JsonViewerApi, StructOptions, ValueContext } from './types.js';
+    import { getContext } from 'svelte';
+    import { valueTokens } from './preview.js';
+    import Preview from './Preview.svelte';
+    import { isSortedKeys, isValueExpandable, shouldAutoExpand, valueEntries } from './struct-helpers.js';
+    import { CONTEXT_KEY } from './types.js';
+    import { isArray, isSet, matchAll, numParts, stringifyIfNeeded } from './utils.js';
+    import ValueNode from './ValueNode.svelte';
 
-    let { value, options, context, autoExpandLimit = 0 }: {
+    const { value, options, context, autoExpandLimit = 0 }: {
         value: unknown;
         options: StructOptions;
         context: ValueContext;
@@ -57,12 +57,13 @@
                 matchAll(
                     value as string,
                     options.match,
-                    (text) => chunks.push({ isMatch: false, text }),
+                    text => chunks.push({ isMatch: false, text }),
                     (text) => {
                         chunks.push({ isMatch: true, text });
-                    }
+                    },
                 );
-            } else {
+            }
+            else {
                 chunks.push({ isMatch: false, text: value as string });
             }
         }
@@ -96,7 +97,7 @@
         const name = String(key);
 
         return name.length > options.maxPropertyLength
-            ? name.slice(0, options.maxPropertyLength) + '…'
+            ? `${name.slice(0, options.maxPropertyLength)}…`
             : name;
     }
 
@@ -126,11 +127,11 @@
     }
 </script>
 
-{#snippet actionButton(action: string, title: string | undefined, handler: (event: Event) => void)}<span class="struct-action-button" data-action={action} {title} role="button" tabindex="0" onclick={handler} onkeydown={keydownActivate(handler)}></span>{/snippet}
+{#snippet actionButton(action: string, title: string | undefined, handler: (event: Event) => void)}<span class='struct-action-button' data-action={action} {title} role='button' tabindex='0' onclick={handler} onkeydown={keydownActivate(handler)}></span>{/snippet}
 
-{#snippet num(value: number)}{#each numParts(value) as part, i}{#if i > 0}<span class="num-delim"></span>{/if}{part}{/each}{/snippet}
+{#snippet num(value: number)}{#each numParts(value) as part, i (i)}{#if i > 0}<span class='num-delim'></span>{/if}{part}{/each}{/snippet}
 
-{#snippet moreButtons()}{#if restCount > 0}<span class="more-buttons">{#if restCount > limitNum}<button class="more-button" onclick={() => (visibleCount += limitNum)}>Show {limitNum} more...</button>{/if}<button class="more-button" onclick={() => (visibleCount = size)}>Show all the rest {restCount} items...</button></span>{/if}{/snippet}
+{#snippet moreButtons()}{#if restCount > 0}<span class='more-buttons'>{#if restCount > limitNum}<button class='more-button' onclick={() => (visibleCount += limitNum)}>Show {limitNum} more...</button>{/if}<button class='more-button' onclick={() => (visibleCount = size)}>Show all the rest {restCount} items...</button></span>{/if}{/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-{#if !expanded}<span class="value" class:struct-expand-value={expandable} role={expandable ? 'button' : undefined} tabindex={expandable ? 0 : undefined} onclick={expandable ? onCollapsedClick : undefined} onkeydown={expandable ? keydownActivate(expand) : undefined}><Preview tokens={valueTokens(value, false, options)} /></span>{:else if isStringValue}<span class="value struct-expanded" class:string-value-as-text={asText}>"{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{@render actionButton('toggle-string-mode', 'Toggle string show mode', () => (asText = !asText))}<span class="string-length">length: {@render num(escapedLength)} chars</span><span class="string-text-wrapper"><span class="string-text">{#each stringChunks as chunk}{#if chunk.isMatch}<span class="match">{chunkText(chunk.text)}</span>{:else}{chunkText(chunk.text)}{/if}{/each}</span></span>"</span>{:else if isArrayLike}<span class="value struct-expanded">[{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if size > 1}<span class="value-size">{@render num(size)} elements</span>{/if}{#each visibleEntries as entry, i (i)}<div class="entry-line" data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}]</span>{:else}<span class="value struct-expanded" class:sort-keys={sortKeys}>&lbrace;{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if !sorted}{@render actionButton('toggle-sort-keys', 'Toggle key sorting', () => (sortKeys = !sortKeys))}{/if}{#if size > 1}<span class="value-size">{@render num(size)} entries</span>{/if}{#each visibleEntries as entry, i (entry[0])}<div class="entry-line" data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><span class="label">{keyIndent}<span class="property">{fitKey(entry[0])}</span>:{nbsp}</span><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}&rbrace;</span>{/if}
+{#if !expanded}<span class='value' class:struct-expand-value={expandable} role={expandable ? 'button' : undefined} tabindex={expandable ? 0 : undefined} onclick={expandable ? onCollapsedClick : undefined} onkeydown={expandable ? keydownActivate(expand) : undefined}><Preview tokens={valueTokens(value, false, options)} /></span>{:else if isStringValue}<span class='value struct-expanded' class:string-value-as-text={asText}>"{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{@render actionButton('toggle-string-mode', 'Toggle string show mode', () => (asText = !asText))}<span class='string-length'>length: {@render num(escapedLength)} chars</span><span class='string-text-wrapper'><span class='string-text'>{#each stringChunks as chunk, i (i)}{#if chunk.isMatch}<span class='match'>{chunkText(chunk.text)}</span>{:else}{chunkText(chunk.text)}{/if}{/each}</span></span>"</span>{:else if isArrayLike}<span class='value struct-expanded'>[{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if size > 1}<span class='value-size'>{@render num(size)} elements</span>{/if}{#each visibleEntries as entry, i (i)}<div class='entry-line' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}]</span>{:else}<span class='value struct-expanded' class:sort-keys={sortKeys}>&lbrace;{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if !sorted}{@render actionButton('toggle-sort-keys', 'Toggle key sorting', () => (sortKeys = !sortKeys))}{/if}{#if size > 1}<span class='value-size'>{@render num(size)} entries</span>{/if}{#each visibleEntries as entry, i (entry[0])}<div class='entry-line' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><span class='label'>{keyIndent}<span class='property'>{fitKey(entry[0])}</span>:{nbsp}</span><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}&rbrace;</span>{/if}

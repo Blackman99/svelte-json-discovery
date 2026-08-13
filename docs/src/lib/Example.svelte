@@ -1,8 +1,8 @@
-<script lang="ts">
+<script lang='ts'>
     import type { Snippet } from 'svelte';
     import CodeBlock from './CodeBlock.svelte';
 
-    let { id, title, intro, code, lang = 'svelte', children, note }: {
+    const { id, title, intro, code, lang = 'svelte', children, note }: {
         id: string;
         title: string;
         intro?: string;
@@ -13,17 +13,17 @@
     } = $props();
 </script>
 
-<section class="example" {id}>
-    <h2><a class="anchor" href="#{id}">§</a>{title}</h2>
-    {#if intro}<p class="intro">{@html intro}</p>{/if}
+<section class='example' {id}>
+    <h2><a class='anchor' href='#{id}'>§</a>{title}</h2>
+    {#if intro}<p class='intro'>{@html intro}</p>{/if}
     {#if code}<CodeBlock {code} {lang} />{/if}
     {#if children}
-        <div class="live">
-            <span class="live-chip">live</span>
+        <div class='live'>
+            <span class='live-chip'>live</span>
             {@render children()}
         </div>
     {/if}
-    {#if note}<p class="note">{@html note}</p>{/if}
+    {#if note}<p class='note'>{@html note}</p>{/if}
 </section>
 
 <style>

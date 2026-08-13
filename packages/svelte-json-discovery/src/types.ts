@@ -1,4 +1,4 @@
-export type StructOptions = {
+export interface StructOptions {
     match: RegExp | string | null;
     limit: number | false;
     limitCollapsed: number | false;
@@ -8,28 +8,28 @@ export type StructOptions = {
     allowedExcessStringLength: number;
     maxPropertyLength: number;
     maxCompactPropertyLength: number;
-};
+}
 
 // Chain describing where a value lives inside the root data,
 // used to build a path for the "Copy path" action
-export type ValueContext = {
+export interface ValueContext {
     parent: ValueContext | null;
     host: unknown;
     key: string | number;
     index: number;
-};
+}
 
-export type PopupAction = {
+export interface PopupAction {
     text: string;
     notes?: string;
     error?: string | false;
     disabled?: boolean;
     groupStart?: boolean;
     action: () => void;
-};
+}
 
-export type JsonViewerApi = {
+export interface JsonViewerApi {
     openActions: (anchor: HTMLElement, value: unknown, context: ValueContext) => void;
-};
+}
 
 export const CONTEXT_KEY = Symbol('svelte-json-discovery');

@@ -1,9 +1,9 @@
 <!-- Value actions menu — a standalone take on struct/popup-value-actions.js -->
-<script lang="ts">
-    import { portal } from './portal.js';
+<script lang='ts'>
     import type { PopupAction } from './types.js';
+    import { portal } from './portal.js';
 
-    let { x, y, actions, theme, scheme, onclose }: {
+    const { x, y, actions, theme, scheme, onclose }: {
         x: number;
         y: number;
         actions: PopupAction[];
@@ -48,7 +48,8 @@
 
         try {
             await item.action();
-        } finally {
+        }
+        finally {
             onclose();
         }
     }
@@ -59,28 +60,28 @@
 <svelte:window onpointerdown={onOutsidePointerDown} onkeydown={onKeydown} onscrollcapture={onclose} />
 
 <div
-    class="struct-actions-popup sjd-theme-{theme}"
+    class='struct-actions-popup sjd-theme-{theme}'
     use:portal
     bind:this={el}
-    style:left="{x}px"
-    style:top="{y}px"
+    style:left='{x}px'
+    style:top='{y}px'
     style:color-scheme={scheme}
-    role="menu"
-    tabindex="-1"
+    role='menu'
+    tabindex='-1'
 >
-    {#each actions as item}
+    {#each actions as item, i (i)}
         <div
-            class="menu-item"
+            class='menu-item'
             class:disabled={item.disabled}
             class:group-start={item.groupStart}
-            role="menuitem"
+            role='menuitem'
             tabindex={item.disabled ? undefined : 0}
             aria-disabled={item.disabled || undefined}
             onclick={() => run(item)}
-            onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), run(item))}
+            onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), run(item))}
         >
-            {item.text}{#if item.notes}<span class="notes">{item.notes}</span>{/if}
-            {#if item.error}<div class="error">{item.error}</div>{/if}
+            {item.text}{#if item.notes}<span class='notes'>{item.notes}</span>{/if}
+            {#if item.error}<div class='error'>{item.error}</div>{/if}
         </div>
     {/each}
 </div>

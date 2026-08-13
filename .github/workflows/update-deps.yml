@@ -1,0 +1,40 @@
+name: Update dependencies
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Bump minor/patch versions with taze
+        run: pnpm dlx taze@latest minor -r -w
+
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build:lib
+      - run: pnpm check
+      - run: pnpm build:docs
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: 'chore: update dependencies'
+          title: 'chore: update dependencies'
+          branch: chore/update-deps
+          body: |
+            Weekly minor/patch dependency updates via [taze](https://github.com/antfu-collective/taze).
+            Major bumps are left for manual review — run `pnpm dlx taze major -r` locally.

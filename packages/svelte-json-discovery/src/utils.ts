@@ -2,25 +2,25 @@
 // is-type.ts, html.ts (numDelim), pattern.ts (matchAll), object-utils.ts,
 // copy-text.ts and model.ts (pathToQuery).
 
-export type TypedArray =
-    | Uint8Array
-    | Uint8ClampedArray
-    | Uint16Array
-    | Uint32Array
-    | Int8Array
-    | Int16Array
-    | Int32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array;
+export type TypedArray
+    = | Uint8Array
+        | Uint8ClampedArray
+        | Uint16Array
+        | Uint32Array
+        | Int8Array
+        | Int16Array
+        | Int32Array
+        | Float32Array
+        | Float64Array
+        | BigInt64Array
+        | BigUint64Array;
 
 export function objectToString(value: unknown): string {
     return Object.prototype.toString.call(value);
 }
 
 export function hasOwn(object: object, key: PropertyKey): boolean {
-    return Object.hasOwn ? Object.hasOwn(object, key) : Object.prototype.hasOwnProperty.call(object, key);
+    return Object.hasOwn ? Object.hasOwn(object, key) : Object.hasOwn(object, key);
 }
 
 export function isTypedArray(value: unknown): value is TypedArray {
@@ -47,10 +47,10 @@ export function isError(value: unknown): value is Error {
     const str = objectToString(value);
 
     return (
-        str === '[object Error]' ||
-        str === '[object DOMException]' ||
-        str === '[object Exception]' ||
-        value instanceof Error
+        str === '[object Error]'
+        || str === '[object DOMException]'
+        || str === '[object Exception]'
+        || value instanceof Error
     );
 }
 
@@ -76,10 +76,9 @@ export function numParts(value: number | bigint | string): string[] {
 
     const parts: string[] = [];
     let lastIndex = 0;
-    let match: RegExpExecArray | null;
 
     delimRegExp.lastIndex = 0;
-    while ((match = delimRegExp.exec(str)) !== null) {
+    for (let match = delimRegExp.exec(str); match !== null; match = delimRegExp.exec(str)) {
         if (match[0] === '') {
             if (match.index > lastIndex) {
                 parts.push(str.slice(lastIndex, match.index));
@@ -95,14 +94,14 @@ export function numParts(value: number | bigint | string): string[] {
     return parts;
 }
 
-export type PatternMatch = { offset: number; length: number };
+export interface PatternMatch { offset: number; length: number }
 
 const stopSymbol = Symbol('stop-match');
 
 function matchWithRx(str: string, pattern: RegExp, lastIndex = 0): PatternMatch | null {
     const rx = pattern.global
         ? pattern
-        : new RegExp(pattern.source, pattern.flags + 'g');
+        : new RegExp(pattern.source, `${pattern.flags}g`);
 
     rx.lastIndex = lastIndex;
 
@@ -122,7 +121,7 @@ export function matchAll(
     pattern: RegExp | string | null,
     onText: (substring: string, last: boolean) => void,
     onMatch: (substring: string, stop: symbol) => void | symbol,
-    ignoreCase = false
+    ignoreCase = false,
 ): void {
     if (!isRegExp(pattern) && typeof pattern !== 'string') {
         onText(text, true);
@@ -135,8 +134,9 @@ export function matchAll(
         if (typeof pattern === 'string') {
             matchText = matchText.toLowerCase();
             pattern = pattern.toLowerCase();
-        } else if (!pattern.ignoreCase) {
-            pattern = new RegExp(pattern.source, pattern.flags + 'i');
+        }
+        else if (!pattern.ignoreCase) {
+            pattern = new RegExp(pattern.source, `${pattern.flags}i`);
         }
     }
 
@@ -167,7 +167,7 @@ export function matchAll(
     } while (lastIndex !== text.length);
 }
 
-const identifierRx = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+const identifierRx = /^[a-z_$][\w$]*$/i;
 
 export function pathToQuery(path: (string | number)[]): string {
     let query = '';
@@ -175,9 +175,11 @@ export function pathToQuery(path: (string | number)[]): string {
     for (const part of path) {
         if (typeof part === 'number') {
             query += `[${part}]`;
-        } else if (identifierRx.test(part)) {
-            query += query === '' ? part : '.' + part;
-        } else {
+        }
+        else if (identifierRx.test(part)) {
+            query += query === '' ? part : `.${part}`;
+        }
+        else {
             query += `[${JSON.stringify(part)}]`;
         }
     }
@@ -190,7 +192,8 @@ export async function copyText(text: string): Promise<void> {
         try {
             await navigator.clipboard.writeText(text);
             return;
-        } catch {
+        }
+        catch {
             // fall through to the legacy path
         }
     }
@@ -205,7 +208,8 @@ export async function copyText(text: string): Promise<void> {
     try {
         el.select();
         document.execCommand('copy');
-    } finally {
+    }
+    finally {
         el.remove();
     }
 }

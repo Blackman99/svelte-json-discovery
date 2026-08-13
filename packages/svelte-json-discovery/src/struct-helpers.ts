@@ -1,7 +1,7 @@
 // Ports of helper functions from discoveryjs/discovery src/views/struct/index.js
 
-import { hasOwn, isArray, isSet, isTypedArray, objectToString } from './utils.js';
 import type { StructOptions } from './types.js';
+import { hasOwn, isArray, isSet, isTypedArray, objectToString } from './utils.js';
 
 export function isValueExpandable(value: unknown, options: StructOptions): boolean {
     // string
@@ -39,7 +39,7 @@ export function shouldAutoExpand(value: unknown): boolean {
     }
 
     // array of numbers
-    if (isTypedArray(value) || (Array.isArray(value) && value.every((el) => typeof el === 'number'))) {
+    if (isTypedArray(value) || (Array.isArray(value) && value.every(el => typeof el === 'number'))) {
         return false;
     }
 
@@ -60,12 +60,12 @@ export function valueEntries(value: unknown): [string | number, unknown][] {
 }
 
 export function isSortedKeys(entries: [string | number, unknown][]): boolean {
-    return entries.length < 2 ||
-        entries.every(([key], idx) => idx === 0 || key > entries[idx - 1][0]);
+    return entries.length < 2
+        || entries.every(([key], idx) => idx === 0 || key > entries[idx - 1][0]);
 }
 
 export function intOption(value: unknown, defaultValue: number): number {
-    if (typeof value === 'number' && isFinite(value) && value >= 1) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
         return Math.trunc(value);
     }
 
@@ -77,7 +77,7 @@ export function listLimit(value: unknown, defaultValue: number): number | false 
         return false;
     }
 
-    if (typeof value === 'number' && isFinite(value) && value >= 1) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
         return Math.trunc(value);
     }
 

@@ -1,7 +1,7 @@
-<script lang="ts">
+<script lang='ts'>
     import { highlight } from './highlight.js';
 
-    let { code, lang = 'svelte' }: { code: string; lang?: string } = $props();
+    const { code, lang = 'svelte' }: { code: string; lang?: string } = $props();
 
     const tokens = $derived(highlight(code.trim()));
     let copied = $state(false);
@@ -13,12 +13,12 @@
     }
 </script>
 
-<div class="code-block">
-    <div class="code-head">
-        <span class="lang">{lang}</span>
-        <button class="copy" onclick={copy}>{copied ? 'copied ✓' : 'copy'}</button>
+<div class='code-block'>
+    <div class='code-head'>
+        <span class='lang'>{lang}</span>
+        <button class='copy' onclick={copy}>{copied ? 'copied ✓' : 'copy'}</button>
     </div>
-    <pre><code>{#each tokens as t}{#if t.cls}<span class={t.cls}>{t.text}</span>{:else}{t.text}{/if}{/each}</code></pre>
+    <pre><code>{#each tokens as t, i (i)}{#if t.cls}<span class={t.cls}>{t.text}</span>{:else}{t.text}{/if}{/each}</code></pre>
 </div>
 
 <style>

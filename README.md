@@ -66,8 +66,14 @@ See the full prop reference in the
 pnpm install
 pnpm dev          # library in watch mode + docs dev server
 pnpm check        # svelte-check across the workspace
+pnpm lint         # eslint (@antfu/eslint-config); `pnpm lint:fix` to autofix
 pnpm build        # build library + docs
+pnpm deps:check   # preview dependency updates (taze)
+pnpm deps:update  # apply dependency updates and reinstall
 ```
+
+Minor/patch dependency bumps are also PR'd automatically every Monday by the
+`update-deps` workflow ([taze](https://github.com/antfu-collective/taze)).
 
 ## Releasing
 

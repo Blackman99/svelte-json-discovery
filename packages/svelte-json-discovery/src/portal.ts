@@ -8,6 +8,6 @@ export function portal(node: HTMLElement) {
     return {
         destroy() {
             node.remove();
-        }
+        },
     };
 }

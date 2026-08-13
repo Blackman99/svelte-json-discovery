@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang='ts'>
     const rows: [string, string, string, string][] = [
         ['data', 'unknown', '—', 'The value to display'],
         ['expanded', 'number | boolean', '1', 'Levels to auto-expand (true = 1; 0/false = collapsed preview)'],
@@ -11,20 +11,20 @@
         ['maxPropertyLength', 'number', 'Infinity', 'Max property name length in expanded entries'],
         ['maxCompactPropertyLength', 'number', '35', 'Max property name length in previews'],
         ['match', 'string | RegExp | null', 'null', 'Highlight matches in strings'],
-        ['theme', "'light' | 'dark' | 'auto'", "'auto'", 'Color scheme of the viewer']
+        ['theme', '\'light\' | \'dark\' | \'auto\'', '\'auto\'', 'Color scheme of the viewer'],
     ];
 </script>
 
-<div class="table-wrap">
+<div class='table-wrap'>
     <table>
         <thead>
             <tr><th>Prop</th><th>Type</th><th>Default</th><th>Description</th></tr>
         </thead>
         <tbody>
-            {#each rows as [prop, type, def, desc]}
+            {#each rows as [prop, type, def, desc] (prop)}
                 <tr>
-                    <td><code class="prop">{prop}</code></td>
-                    <td><code class="type">{type}</code></td>
+                    <td><code class='prop'>{prop}</code></td>
+                    <td><code class='type'>{type}</code></td>
                     <td><code>{def}</code></td>
                     <td>{desc}</td>
                 </tr>

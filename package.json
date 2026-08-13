@@ -1,19 +1,29 @@
 {
-  "name": "svelte-json-discovery-monorepo",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "pnpm --filter svelte-json-discovery build && pnpm --filter docs build",
-    "build:lib": "pnpm --filter svelte-json-discovery build",
-    "build:docs": "pnpm --filter docs build",
-    "dev": "pnpm --filter svelte-json-discovery build && pnpm --parallel --stream dev",
-    "check": "pnpm -r check",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "pnpm build:lib && changeset publish"
-  },
-  "devDependencies": {
-    "@changesets/cli": "^2.29.5"
-  },
-  "packageManager": "pnpm@10.11.0"
+    "name": "svelte-json-discovery-monorepo",
+    "type": "module",
+    "private": true,
+    "packageManager": "pnpm@10.34.5",
+    "scripts": {
+        "build": "pnpm --filter svelte-json-discovery build && pnpm --filter docs build",
+        "build:lib": "pnpm --filter svelte-json-discovery build",
+        "build:docs": "pnpm --filter docs build",
+        "dev": "pnpm --filter svelte-json-discovery build && pnpm --parallel --stream dev",
+        "check": "pnpm -r check",
+        "changeset": "changeset",
+        "version-packages": "changeset version",
+        "release": "pnpm build:lib && changeset publish",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "deps:check": "taze -r",
+        "deps:update": "taze -r -w && pnpm install"
+    },
+    "devDependencies": {
+        "@antfu/eslint-config": "^9.3.0",
+        "@changesets/cli": "^2.31.1",
+        "eslint": "^10.8.1",
+        "eslint-plugin-svelte": "^3.23.0",
+        "svelte-eslint-parser": "^1.8.0",
+        "taze": "^20.0.1",
+        "typescript": "~6.0.3"
+    }
 }

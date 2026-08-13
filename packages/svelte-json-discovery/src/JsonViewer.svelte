@@ -1,12 +1,12 @@
 <!-- JSON viewer — Svelte port of the `struct` view from discoveryjs/discovery -->
-<script lang="ts">
+<script lang='ts'>
+    import type { PopupAction, StructOptions, ValueContext } from './types.js';
     import { setContext } from 'svelte';
-    import ValueNode from './ValueNode.svelte';
     import ActionsPopup from './ActionsPopup.svelte';
     import { intOption, listLimit } from './struct-helpers.js';
-    import { copyText, isRegExp, pathToQuery } from './utils.js';
     import { CONTEXT_KEY } from './types.js';
-    import type { PopupAction, StructOptions, ValueContext } from './types.js';
+    import { copyText, isRegExp, pathToQuery } from './utils.js';
+    import ValueNode from './ValueNode.svelte';
     import './struct.css';
 
     type Props = {
@@ -36,7 +36,7 @@
         theme?: 'light' | 'dark' | 'auto';
     };
 
-    let {
+    const {
         data,
         expanded = 1,
         limit,
@@ -48,7 +48,7 @@
         maxPropertyLength,
         maxCompactPropertyLength,
         match = null,
-        theme = 'auto'
+        theme = 'auto',
     }: Props = $props();
 
     const options: StructOptions = $derived({
@@ -60,11 +60,11 @@
         maxCompactStringLength: intOption(maxCompactStringLength, 40),
         allowedExcessStringLength: intOption(allowedExcessStringLength, 10),
         maxPropertyLength: intOption(maxPropertyLength, Infinity),
-        maxCompactPropertyLength: intOption(maxCompactPropertyLength, 35)
+        maxCompactPropertyLength: intOption(maxCompactPropertyLength, 35),
     });
 
     const expandDepth = $derived(
-        expanded === true ? 1 : typeof expanded === 'number' ? Math.max(0, Math.trunc(expanded)) : 0
+        expanded === true ? 1 : typeof expanded === 'number' ? Math.max(0, Math.trunc(expanded)) : 0,
     );
     const themeName = $derived(theme === 'light' || theme === 'dark' ? theme : 'auto');
     const scheme = $derived(themeName === 'auto' ? 'light dark' : themeName);
@@ -81,7 +81,7 @@
         popup = {
             x: rect.left,
             y: rect.bottom + 3,
-            actions: buildActions(value, context)
+            actions: buildActions(value, context),
         };
     }
 
@@ -115,7 +115,7 @@
             return [
                 { text: 'Copy as quoted string', action: () => copyText(JSON.stringify(value)) },
                 { text: 'Copy as unquoted string', action: () => copyText(JSON.stringify(value).slice(1, -1)) },
-                { text: 'Copy a value (unescaped)', action: () => copyText(value) }
+                { text: 'Copy a value (unescaped)', action: () => copyText(value) },
             ];
         }
 
@@ -131,10 +131,12 @@
             if (compactStr === undefined) {
                 compactStr = undefined;
                 jsonError = 'Value is not JSON serializable';
-            } else {
+            }
+            else {
                 formattedStr = JSON.stringify(value, null, 4);
             }
-        } catch (e) {
+        }
+        catch (e) {
             compactStr = formattedStr = undefined;
             jsonError = /Maximum call stack size|too much recursion/i.test((e as Error).message)
                 ? 'Too much nested structure'
@@ -151,13 +153,13 @@
             notes: `(formatted${formatSize(formattedStr)})`,
             error: jsonError ? `Can't export JSON: ${jsonError}` : false,
             disabled: Boolean(jsonError),
-            action: () => copyText(formattedStr ?? '')
+            action: () => copyText(formattedStr ?? ''),
         });
         actions.push({
             text: 'Copy as JSON',
             notes: `(compact${formatSize(compactStr)})`,
             disabled: Boolean(jsonError),
-            action: () => copyText(compactStr ?? '')
+            action: () => copyText(compactStr ?? ''),
         });
 
         return actions;
@@ -175,7 +177,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 <div
     bind:this={rootEl}
-    class="view-struct sjd-theme-{themeName}"
+    class='view-struct sjd-theme-{themeName}'
     style:color-scheme={scheme}
     onclick={onRootClick}
 >

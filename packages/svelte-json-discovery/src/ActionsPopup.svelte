@@ -53,7 +53,9 @@
     }
 </script>
 
-<svelte:window onpointerdown={onOutsidePointerDown} onkeydown={onKeydown} onscroll={onclose} />
+<!-- capture-phase scroll: also closes when any scrollable ancestor
+     (e.g. the viewer's own overflow container) scrolls the anchor away -->
+<svelte:window onpointerdown={onOutsidePointerDown} onkeydown={onKeydown} onscrollcapture={onclose} />
 
 <div
     class="struct-actions-popup"

@@ -25,7 +25,15 @@
     font-family: var(--sjd-monospace-font-family);
     font-size: var(--discovery-monospace-font-size, 12px);
     line-height: var(--discovery-monospace-line-height, 1.5);
-    background-color: rgba(205, 205, 205, 0.1);
+    /* the original paints rgba(205,205,205,.1) over the app background;
+       standalone, nobody paints that background for us — pre-composite it
+       so a forced theme ("light" inside a dark page, or vice versa) still
+       gets a correct opaque surface */
+    background-color: color-mix(
+        in srgb,
+        #cdcdcd 10%,
+        var(--discovery-background-color, light-dark(#ffffff, #242424))
+    );
     color: var(--sjd-fmt-color);
     white-space: nowrap;
     text-align: left;

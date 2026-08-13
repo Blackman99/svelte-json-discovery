@@ -217,7 +217,7 @@
         <Example
             id="theming"
             title="Theming"
-            intro="Three modes via the <code>theme</code> prop. Colors are defined with <code>light-dark()</code> and fall back to the exact discovery palette — but every <code>--discovery-fmt-*</code> CSS custom property is honored, so the component drops into a discovery-themed app unchanged."
+            intro="Three modes via the <code>theme</code> prop — <code>auto</code> follows <code>prefers-color-scheme</code>. The palette matches discovery exactly, and every <code>--discovery-fmt-*</code> / <code>--discovery-background-color</code> CSS custom property is honored, so the component drops into a discovery-themed app unchanged."
             code={themingCode}
         >
             <div class="theme-grid">

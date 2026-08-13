@@ -3,10 +3,11 @@
     import { portal } from './portal.js';
     import type { PopupAction } from './types.js';
 
-    let { x, y, actions, scheme, onclose }: {
+    let { x, y, actions, theme, scheme, onclose }: {
         x: number;
         y: number;
         actions: PopupAction[];
+        theme: string;
         scheme: string;
         onclose: () => void;
     } = $props();
@@ -58,7 +59,7 @@
 <svelte:window onpointerdown={onOutsidePointerDown} onkeydown={onKeydown} onscrollcapture={onclose} />
 
 <div
-    class="struct-actions-popup"
+    class="struct-actions-popup sjd-theme-{theme}"
     use:portal
     bind:this={el}
     style:left="{x}px"

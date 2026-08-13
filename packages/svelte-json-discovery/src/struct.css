@@ -2,22 +2,99 @@
    (style/index.css, structure.css, action-button.css + shared more-buttons).
    Container classes managed by JS in the original (.struct-expanded-value,
    .struct-expand) are replaced with :has() selectors.
-   Colors default via light-dark(), but honor --discovery-* variables when
-   the component is embedded in a discovery-themed app. */
 
-.view-struct {
-    --sjd-fmt-color: var(--discovery-fmt-color, light-dark(#666, #999));
-    --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, light-dark(#333, #aaa));
-    --sjd-fmt-property-color: var(--discovery-fmt-property-color, light-dark(#bd6476, #d17a8c));
-    --sjd-fmt-number-color: var(--discovery-fmt-number-color, light-dark(#07a, #0f8dc2));
-    --sjd-fmt-atom-color: var(--discovery-fmt-atom-color, light-dark(#07a, #0f8dc2));
-    --sjd-fmt-string-color: var(--discovery-fmt-string-color, light-dark(#690, #7faf20));
+   Theming: the component root and the (body-portaled) actions popup carry
+   sjd-theme-light / sjd-theme-dark / sjd-theme-auto classes. Colors are
+   plain custom properties switched by those classes — deliberately NOT
+   light-dark(), which CSS minifiers (e.g. lightningcss in Vite builds)
+   downlevel into a polyfill driven by color-scheme declarations they can
+   see in CSS, breaking themes set from inline styles. Every --discovery-*
+   variable is honored, so the component drops into a discovery-themed app
+   unchanged. */
+
+.view-struct,
+.struct-actions-popup {
+    /* light palette (default) */
+    --sjd-app-bg: var(--discovery-background-color, #ffffff);
+    --sjd-fmt-color: var(--discovery-fmt-color, #666);
+    --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #333);
+    --sjd-fmt-property-color: var(--discovery-fmt-property-color, #bd6476);
+    --sjd-fmt-number-color: var(--discovery-fmt-number-color, #07a);
+    --sjd-fmt-atom-color: var(--discovery-fmt-atom-color, #07a);
+    --sjd-fmt-string-color: var(--discovery-fmt-string-color, #690);
     --sjd-fmt-string-highlight-color: var(--discovery-fmt-string-highlight-color, rgba(35, 165, 25, 0.1));
-    --sjd-fmt-string-underline-color: var(--discovery-fmt-string-underline-color, light-dark(#69069066, #85ab51));
-    --sjd-fmt-string-hover-color: var(--discovery-fmt-string-hover-color, light-dark(#576d00, #97cf26));
+    --sjd-fmt-string-underline-color: var(--discovery-fmt-string-underline-color, #66990066);
+    --sjd-fmt-string-hover-color: var(--discovery-fmt-string-hover-color, #576d00);
+    --sjd-ui-color: var(--discovery-color, #000);
+    --sjd-match-bg: #f5e69a;
+    --sjd-match-border: transparent;
+    --sjd-error-border: #f8c1c1;
+    --sjd-error-bg: #ffe0e0;
+    --sjd-error-color: #d23b3b;
+    --sjd-error-message-bg: #fff1f1;
+    --sjd-toggle-color: #686;
+    --sjd-popup-bg: #fff;
+    --sjd-popup-color: #333;
+    --sjd-popup-notes-color: #666;
+    --sjd-popup-error-color: rgba(214, 31, 31, 0.77);
     --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
     --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
+}
 
+/* dark palette — keep in sync with the @media block below */
+.view-struct.sjd-theme-dark,
+.struct-actions-popup.sjd-theme-dark {
+    --sjd-app-bg: var(--discovery-background-color, #242424);
+    --sjd-fmt-color: var(--discovery-fmt-color, #999);
+    --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
+    --sjd-fmt-property-color: var(--discovery-fmt-property-color, #d17a8c);
+    --sjd-fmt-number-color: var(--discovery-fmt-number-color, #0f8dc2);
+    --sjd-fmt-atom-color: var(--discovery-fmt-atom-color, #0f8dc2);
+    --sjd-fmt-string-color: var(--discovery-fmt-string-color, #7faf20);
+    --sjd-fmt-string-underline-color: var(--discovery-fmt-string-underline-color, #85ab51);
+    --sjd-fmt-string-hover-color: var(--discovery-fmt-string-hover-color, #97cf26);
+    --sjd-ui-color: var(--discovery-color, #ccc);
+    --sjd-match-bg: #565638;
+    --sjd-match-border: #a7a73b;
+    --sjd-error-border: #0004;
+    --sjd-error-bg: #622b29;
+    --sjd-error-color: #c66;
+    --sjd-error-message-bg: #443232;
+    --sjd-toggle-color: #72b372;
+    --sjd-popup-bg: #333;
+    --sjd-popup-color: #ccc;
+    --sjd-popup-notes-color: #999;
+    --sjd-popup-error-color: #e66;
+}
+
+@media (prefers-color-scheme: dark) {
+    .view-struct.sjd-theme-auto,
+    .struct-actions-popup.sjd-theme-auto {
+        --sjd-app-bg: var(--discovery-background-color, #242424);
+        --sjd-fmt-color: var(--discovery-fmt-color, #999);
+        --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
+        --sjd-fmt-property-color: var(--discovery-fmt-property-color, #d17a8c);
+        --sjd-fmt-number-color: var(--discovery-fmt-number-color, #0f8dc2);
+        --sjd-fmt-atom-color: var(--discovery-fmt-atom-color, #0f8dc2);
+        --sjd-fmt-string-color: var(--discovery-fmt-string-color, #7faf20);
+        --sjd-fmt-string-underline-color: var(--discovery-fmt-string-underline-color, #85ab51);
+        --sjd-fmt-string-hover-color: var(--discovery-fmt-string-hover-color, #97cf26);
+        --sjd-ui-color: var(--discovery-color, #ccc);
+        --sjd-match-bg: #565638;
+        --sjd-match-border: #a7a73b;
+        --sjd-error-border: #0004;
+        --sjd-error-bg: #622b29;
+        --sjd-error-color: #c66;
+        --sjd-error-message-bg: #443232;
+        --sjd-toggle-color: #72b372;
+        --sjd-popup-bg: #333;
+        --sjd-popup-color: #ccc;
+        --sjd-popup-notes-color: #999;
+        --sjd-popup-error-color: #e66;
+    }
+}
+
+.view-struct {
     position: relative;
     margin: 1px 0;
     padding: 7px 8px;
@@ -29,11 +106,7 @@
        standalone, nobody paints that background for us — pre-composite it
        so a forced theme ("light" inside a dark page, or vice versa) still
        gets a correct opaque surface */
-    background-color: color-mix(
-        in srgb,
-        #cdcdcd 10%,
-        var(--discovery-background-color, light-dark(#ffffff, #242424))
-    );
+    background-color: color-mix(in srgb, #cdcdcd 10%, var(--sjd-app-bg));
     color: var(--sjd-fmt-color);
     white-space: nowrap;
     text-align: left;
@@ -184,9 +257,9 @@
 
 .view-struct .string > .match,
 .view-struct .string-text > .match {
-    background-color: light-dark(#f5e69a, #565638);
+    background-color: var(--sjd-match-bg);
     padding-top: 1px;
-    border-bottom: 1px solid light-dark(transparent, #a7a73b);
+    border-bottom: 1px solid var(--sjd-match-border);
 }
 
 .view-struct .error-value {
@@ -195,10 +268,10 @@
     margin-top: -1px;
     line-height: 1.5;
     border-radius: 3px;
-    border: 1px solid light-dark(#f8c1c1, #0004);
-    background-color: light-dark(#ffe0e0, #622b29);
+    border: 1px solid var(--sjd-error-border);
+    background-color: var(--sjd-error-bg);
     font-size: 84%;
-    color: light-dark(#d23b3b, #c66);
+    color: var(--sjd-error-color);
 }
 .view-struct .error-value__name {
     vertical-align: top;
@@ -207,7 +280,7 @@
 .view-struct .error-value__message {
     padding: 0 4px;
     display: inline-block;
-    background-color: light-dark(#fff1f1, #443232);
+    background-color: var(--sjd-error-message-bg);
 }
 
 /* action buttons */
@@ -227,13 +300,13 @@
     user-select: none;
 }
 .view-struct .struct-action-button:hover {
-    color: light-dark(#333, #aaa);
+    color: var(--sjd-fmt-hover-color);
     background-color: rgba(187, 187, 187, 0.25);
     border-color: rgba(137, 137, 137, 0.4);
 }
 .view-struct .sort-keys > .struct-action-button[data-action="toggle-sort-keys"],
 .view-struct .string-value-as-text > .struct-action-button[data-action="toggle-string-mode"] {
-    color: light-dark(#686, #72b372);
+    color: var(--sjd-toggle-color);
     background-color: rgba(151, 223, 151, 0.25);
     border-color: rgba(137, 177, 137, 0.4);
 }
@@ -259,7 +332,7 @@
 }
 .view-struct .more-buttons .more-button {
     vertical-align: top;
-    color: var(--discovery-color, light-dark(black, #ccc));
+    color: var(--sjd-ui-color);
     min-height: 0;
     padding: 4px 8px;
     margin: 0;
@@ -284,19 +357,16 @@
 
 /* value actions popup — portaled to document.body (so that a transformed
    or animated ancestor of the viewer can't displace its fixed positioning),
-   hence self-contained selectors and font variables */
+   hence self-contained selectors and theme classes of its own */
 .struct-actions-popup {
-    --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
-    --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
-
     position: fixed;
     z-index: 1000;
     min-width: 200px;
     max-width: 480px;
     padding: 4px;
     box-sizing: border-box;
-    background: light-dark(white, #333);
-    color: light-dark(#333, #ccc);
+    background: var(--sjd-popup-bg);
+    color: var(--sjd-popup-color);
     border: 1px solid rgba(127, 127, 127, 0.35);
     border-radius: 4px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
@@ -325,7 +395,7 @@
 }
 .struct-actions-popup .menu-item .notes {
     display: inline;
-    color: light-dark(#666, #999);
+    color: var(--sjd-popup-notes-color);
     margin-left: 0.5em;
     font-family: var(--sjd-monospace-font-family);
     font-size: 11px;
@@ -333,5 +403,5 @@
 }
 .struct-actions-popup .menu-item .error {
     font-size: 11px;
-    color: light-dark(rgba(214, 31, 31, 0.77), #e66);
+    color: var(--sjd-popup-error-color);
 }

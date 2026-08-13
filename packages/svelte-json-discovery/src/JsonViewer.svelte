@@ -66,7 +66,8 @@
     const expandDepth = $derived(
         expanded === true ? 1 : typeof expanded === 'number' ? Math.max(0, Math.trunc(expanded)) : 0
     );
-    const scheme = $derived(theme === 'auto' ? 'light dark' : theme);
+    const themeName = $derived(theme === 'light' || theme === 'dark' ? theme : 'auto');
+    const scheme = $derived(themeName === 'auto' ? 'light dark' : themeName);
     const rootContext = $derived<ValueContext>({ parent: null, host: { '': data }, key: '', index: 0 });
 
     let rootEl = $state<HTMLElement>();
@@ -174,9 +175,9 @@
 <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 <div
     bind:this={rootEl}
-    class="view-struct"
+    class="view-struct sjd-theme-{themeName}"
     style:color-scheme={scheme}
     onclick={onRootClick}
 >
-    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} />{/key}{#if popup}<ActionsPopup {...popup} {scheme} onclose={() => (popup = null)} />{/if}
+    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} />{/key}{#if popup}<ActionsPopup {...popup} theme={themeName} {scheme} onclose={() => (popup = null)} />{/if}
 </div>

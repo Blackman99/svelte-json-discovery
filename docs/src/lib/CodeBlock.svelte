@@ -1,13 +1,22 @@
 <script lang='ts'>
     import { highlight } from './highlight.js';
 
-    const { code, lang = 'svelte' }: { code: string; lang?: string } = $props();
+    interface CodeTab { label: string; code: string }
 
-    const tokens = $derived(highlight(code.trim()));
+    const { code = '', lang = 'svelte', tabs = null }: {
+        code?: string;
+        lang?: string;
+        tabs?: CodeTab[] | null;
+    } = $props();
+
+    let active = $state(0);
     let copied = $state(false);
 
+    const activeCode = $derived(tabs ? tabs[active].code : code);
+    const tokens = $derived(highlight(activeCode.trim()));
+
     async function copy() {
-        await navigator.clipboard.writeText(code.trim());
+        await navigator.clipboard.writeText(activeCode.trim());
         copied = true;
         setTimeout(() => (copied = false), 1500);
     }
@@ -15,7 +24,21 @@
 
 <div class='code-block'>
     <div class='code-head'>
-        <span class='lang'>{lang}</span>
+        {#if tabs}
+            <div class='tabs' role='tablist' aria-label='Package manager'>
+                {#each tabs as tab, i (tab.label)}
+                    <button
+                        class='tab'
+                        class:active={i === active}
+                        role='tab'
+                        aria-selected={i === active}
+                        onclick={() => (active = i)}
+                    >{tab.label}</button>
+                {/each}
+            </div>
+        {:else}
+            <span class='lang'>{lang}</span>
+        {/if}
         <button class='copy' onclick={copy}>{copied ? 'copied ✓' : 'copy'}</button>
     </div>
     <pre><code>{#each tokens as t, i (i)}{#if t.cls}<span class={t.cls}>{t.text}</span>{:else}{t.text}{/if}{/each}</code></pre>
@@ -43,6 +66,47 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: #7d746a;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 2px;
+        margin-left: -8px;
+    }
+
+    .tab {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        color: #7d746a;
+        background: none;
+        border: none;
+        border-radius: 4px;
+        padding: 3px 9px;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.15s, background-color 0.15s;
+    }
+
+    .tab:hover {
+        color: #c9c1b5;
+        background: rgba(236, 229, 218, 0.06);
+    }
+
+    .tab.active {
+        color: #ece5da;
+        background: rgba(236, 229, 218, 0.09);
+    }
+
+    .tab.active::after {
+        content: '';
+        position: absolute;
+        left: 9px;
+        right: 9px;
+        bottom: -7px;
+        height: 2px;
+        border-radius: 1px;
+        background: var(--accent);
     }
 
     .copy {

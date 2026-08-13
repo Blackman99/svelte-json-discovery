@@ -2,12 +2,13 @@
     import type { Snippet } from 'svelte';
     import CodeBlock from './CodeBlock.svelte';
 
-    const { id, title, intro, code, lang = 'svelte', children, note }: {
+    const { id, title, intro, code, lang = 'svelte', tabs, children, note }: {
         id: string;
         title: string;
         intro?: string;
         code?: string;
         lang?: string;
+        tabs?: { label: string; code: string }[];
         children?: Snippet;
         note?: string;
     } = $props();
@@ -16,7 +17,7 @@
 <section class='example' {id}>
     <h2><a class='anchor' href='#{id}'>§</a>{title}</h2>
     {#if intro}<p class='intro'>{@html intro}</p>{/if}
-    {#if code}<CodeBlock {code} {lang} />{/if}
+    {#if code || tabs}<CodeBlock {code} {lang} {tabs} />{/if}
     {#if children}
         <div class='live'>
             <span class='live-chip'>live</span>

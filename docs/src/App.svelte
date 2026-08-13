@@ -33,7 +33,11 @@
         ['credits', 'Credits'],
     ];
 
-    const installCode = 'npm  install svelte-json-discovery\npnpm add     svelte-json-discovery\nyarn add     svelte-json-discovery';
+    const installTabs = [
+        { label: 'pnpm', code: 'pnpm add svelte-json-discovery' },
+        { label: 'npm', code: 'npm install svelte-json-discovery' },
+        { label: 'yarn', code: 'yarn add svelte-json-discovery' },
+    ];
 
     const quickStartCode = `<script>
   import { JsonViewer } from 'svelte-json-discovery';
@@ -134,7 +138,7 @@
             id='install'
             title='Install'
             intro='One peer dependency: <code>svelte ^5</code>. Nothing else ships with it.'
-            code={installCode}
+            tabs={installTabs}
             lang='bash'
         />
 

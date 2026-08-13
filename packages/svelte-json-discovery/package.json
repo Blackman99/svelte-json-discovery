@@ -1,7 +1,7 @@
 {
     "name": "svelte-json-discovery",
     "type": "module",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "description": "Standalone Svelte 5 port of the struct (JSON) view from discoveryjs/discovery",
     "license": "MIT",
     "homepage": "https://blackman99.github.io/svelte-json-discovery/",

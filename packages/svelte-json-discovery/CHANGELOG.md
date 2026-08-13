@@ -1,0 +1,13 @@
+# svelte-json-discovery
+
+## 0.1.0
+
+### Minor Changes
+
+- 90ffb1f: Initial release: standalone Svelte 5 port of the `struct` (JSON) view from discoveryjs/discovery — type-aware collapsed previews, expand/collapse with auto-expand depth, pagination for large collections, string truncation with "as text" mode, match highlighting, value actions popup (copy path / copy JSON), Set/Date/RegExp/Error/bigint/TypedArray support, and light/dark/auto theming.
+
+### Patch Changes
+
+- b810f5c: Paint an opaque, theme-correct background: the original struct view layers `rgba(205,205,205,.1)` over the discovery app background, so standalone a forced `theme="light"` viewer inside a dark page (or vice versa) looked wrong — token colors switched but the surface stayed whatever was behind it. The background is now pre-composited via `color-mix()` over `--discovery-background-color` (falling back to `light-dark(#fff, #242424)`), matching how the view renders inside discovery itself.
+- 53ab498: Fix value-actions popup displacement: the popup is now portaled to `document.body`, so a transformed/filtered/animated ancestor of the viewer can no longer become the containing block for its fixed positioning and shift it away from the ƒ button. The popup now also closes when any scrollable ancestor scrolls (capture-phase listener), not only the window.
+- 25e1621: Make forced themes survive production CSS pipelines: theme colors are now driven by `sjd-theme-light` / `sjd-theme-dark` / `sjd-theme-auto` classes (with a `prefers-color-scheme` media query for `auto`) instead of `light-dark()` + an inline `color-scheme`. CSS minifiers such as lightningcss (Vite's default) downlevel `light-dark()` into a polyfill keyed off `color-scheme` declarations they can see in stylesheets, which silently broke `theme="light"` inside dark pages in production builds while dev builds looked fine. Also fixes a typo in the light-theme string underline color.

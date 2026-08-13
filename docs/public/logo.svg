@@ -1,0 +1,25 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rim" x1="16" y1="16" x2="92" y2="92" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF3E00"/>
+      <stop offset="1" stop-color="#FF8A00"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="84" y1="84" x2="114" y2="114" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A00"/>
+      <stop offset="1" stop-color="#FF3E00"/>
+    </linearGradient>
+  </defs>
+  <!-- handle -->
+  <line x1="85" y1="85" x2="111" y2="111" stroke="url(#handle)" stroke-width="15" stroke-linecap="round"/>
+  <!-- lens -->
+  <circle cx="54" cy="54" r="38" fill="#262220" stroke="url(#rim)" stroke-width="11"/>
+  <!-- expand guide line, as in the struct view -->
+  <line x1="32" y1="40" x2="32" y2="72" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- entry rows: property dot + value token -->
+  <circle cx="42" cy="42" r="4.5" fill="#E17A93"/>
+  <rect x="51" y="37.5" width="25" height="9" rx="4.5" fill="#9CCB43"/>
+  <circle cx="48" cy="56" r="4.5" fill="#E17A93"/>
+  <rect x="57" y="51.5" width="15" height="9" rx="4.5" fill="#58AEDD"/>
+  <circle cx="42" cy="70" r="4.5" fill="#E17A93"/>
+  <rect x="51" y="65.5" width="20" height="9" rx="4.5" fill="#C49BE8"/>
+</svg>

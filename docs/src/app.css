@@ -1,0 +1,108 @@
+/* ————————————————————————————————————————————————
+   svelte-json-discovery docs — "field notes" design system
+   Paper & ink editorial surfaces around a monospace specimen.
+   ———————————————————————————————————————————————— */
+
+:root {
+    --font-display: 'Fraunces', 'Georgia', serif;
+    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+    --bg: #faf6ef;
+    --bg-raised: #fffdf8;
+    --bg-dip: #f1ebe0;
+    --ink: #241e18;
+    --muted: #6e6459;
+    --faint: #a2988c;
+    --line: rgba(36, 30, 24, 0.14);
+    --line-soft: rgba(36, 30, 24, 0.07);
+    --accent: #e8480c;
+    --accent-ink: #c93c08;
+    --rose: #b25a6e;
+    --green: #5a7d1a;
+    --blue: #0e6c9e;
+    --purple: #7a4fa8;
+    --code-bg: #201c19;
+    --shadow: 0 1px 2px rgba(36, 30, 24, 0.06), 0 8px 24px -12px rgba(36, 30, 24, 0.18);
+
+    color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+    --bg: #171412;
+    --bg-raised: #201c19;
+    --bg-dip: #131110;
+    --ink: #ece5da;
+    --muted: #a39889;
+    --faint: #6f665c;
+    --line: rgba(236, 229, 218, 0.16);
+    --line-soft: rgba(236, 229, 218, 0.07);
+    --accent: #ff5d1f;
+    --accent-ink: #ff7a45;
+    --rose: #d98ca0;
+    --green: #a3c64c;
+    --blue: #58aedd;
+    --purple: #c49be8;
+    --code-bg: #131110;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.65;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+a {
+    color: var(--accent-ink);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-display);
+    font-variation-settings: 'opsz' 60;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--bg-dip);
+    border: 1px solid var(--line-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* the viewer inherits docs mono font */
+.view-struct {
+    --discovery-monospace-font-family: var(--font-mono);
+    border-radius: 8px;
+}

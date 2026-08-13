@@ -1,0 +1,19 @@
+{
+  "name": "svelte-json-discovery-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter svelte-json-discovery build && pnpm --filter docs build",
+    "build:lib": "pnpm --filter svelte-json-discovery build",
+    "build:docs": "pnpm --filter docs build",
+    "dev": "pnpm --filter svelte-json-discovery build && pnpm --parallel --stream dev",
+    "check": "pnpm -r check",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build:lib && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.5"
+  },
+  "packageManager": "pnpm@10.11.0"
+}

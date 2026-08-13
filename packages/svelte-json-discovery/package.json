@@ -1,0 +1,57 @@
+{
+  "name": "svelte-json-discovery",
+  "version": "0.0.0",
+  "description": "Standalone Svelte 5 port of the struct (JSON) view from discoveryjs/discovery",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "svelte",
+    "json",
+    "viewer",
+    "json-viewer",
+    "discoveryjs",
+    "struct"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Blackman99/svelte-json-discovery.git",
+    "directory": "packages/svelte-json-discovery"
+  },
+  "homepage": "https://blackman99.github.io/svelte-json-discovery/",
+  "bugs": "https://github.com/Blackman99/svelte-json-discovery/issues",
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "svelte-package -i src -o dist",
+    "dev": "svelte-package -i src -o dist -w",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/package": "^2.5.4",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "svelte": "^5.56.8",
+    "svelte-check": "^4.7.3",
+    "typescript": "~6.0.2",
+    "@tsconfig/svelte": "^5.0.8"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,323 @@
+/* Port of discoveryjs/discovery struct view styles
+   (style/index.css, structure.css, action-button.css + shared more-buttons).
+   Container classes managed by JS in the original (.struct-expanded-value,
+   .struct-expand) are replaced with :has() selectors.
+   Colors default via light-dark(), but honor --discovery-* variables when
+   the component is embedded in a discovery-themed app. */
+
+.view-struct {
+    --sjd-fmt-color: var(--discovery-fmt-color, light-dark(#666, #999));
+    --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, light-dark(#333, #aaa));
+    --sjd-fmt-property-color: var(--discovery-fmt-property-color, light-dark(#bd6476, #d17a8c));
+    --sjd-fmt-number-color: var(--discovery-fmt-number-color, light-dark(#07a, #0f8dc2));
+    --sjd-fmt-atom-color: var(--discovery-fmt-atom-color, light-dark(#07a, #0f8dc2));
+    --sjd-fmt-string-color: var(--discovery-fmt-string-color, light-dark(#690, #7faf20));
+    --sjd-fmt-string-highlight-color: var(--discovery-fmt-string-highlight-color, rgba(35, 165, 25, 0.1));
+    --sjd-fmt-string-underline-color: var(--discovery-fmt-string-underline-color, light-dark(#69069066, #85ab51));
+    --sjd-fmt-string-hover-color: var(--discovery-fmt-string-hover-color, light-dark(#576d00, #97cf26));
+    --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
+    --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
+
+    position: relative;
+    margin: 1px 0;
+    padding: 7px 8px;
+    overflow: auto;
+    font-family: var(--sjd-monospace-font-family);
+    font-size: var(--discovery-monospace-font-size, 12px);
+    line-height: var(--discovery-monospace-line-height, 1.5);
+    background-color: rgba(205, 205, 205, 0.1);
+    color: var(--sjd-fmt-color);
+    white-space: nowrap;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+/* collapsed but expandable root: whole block is clickable */
+.view-struct:has(> .value.struct-expand-value) {
+    cursor: pointer;
+}
+.view-struct:has(> .value.struct-expand-value):hover {
+    color: var(--sjd-fmt-hover-color);
+    background-color: rgba(187, 187, 187, 0.25);
+}
+
+/* collapsed expandable values */
+.view-struct .struct-expand-value {
+    display: inline-block;
+    vertical-align: top;
+    white-space: nowrap !important;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.view-struct .struct-expand-value:hover {
+    color: var(--sjd-fmt-hover-color);
+    background-color: rgba(187, 187, 187, 0.25);
+}
+
+/* guide line along an expanded value (was .struct-expanded-value) */
+.view-struct:has(> .value.struct-expanded),
+.view-struct .entry-line:has(> .value.struct-expanded) {
+    background-image: linear-gradient(to bottom, rgba(187, 187, 187, 0.15), rgba(187, 187, 187, 0.15));
+    background-size: 1px calc(100% - 36px);
+    background-position: 3px 18px;
+    background-repeat: no-repeat;
+    background-attachment: local;
+    background-origin: content-box;
+}
+
+.view-struct .entry-line {
+    white-space: nowrap;
+    padding-left: 4ch;
+}
+.view-struct .entry-line[data-index]::before {
+    content: attr(data-index);
+    position: absolute;
+    padding-left: 4px;
+    padding-bottom: 4px;
+    padding-top: 4px;
+    border-left: 1px solid rgba(187, 187, 187, 0.25);
+    transform: translate(-26px, 18px) rotate(-90deg);
+    transform-origin: left top;
+    font-size: 10px;
+    line-height: 10px;
+    color: rgba(153, 153, 153, 0.35);
+}
+.view-struct .label {
+    margin-left: -4ch;
+}
+.view-struct .property {
+    color: var(--sjd-fmt-property-color);
+}
+.view-struct .value {
+    white-space: normal;
+    vertical-align: top;
+}
+.view-struct .keyword {
+    color: var(--sjd-fmt-atom-color);
+}
+.view-struct .value > .number {
+    color: var(--sjd-fmt-number-color);
+}
+.view-struct .num-delim {
+    padding-left: 2px;
+}
+.view-struct .value > .string,
+.view-struct .value > .string a {
+    color: var(--sjd-fmt-string-color);
+    text-decoration-color: var(--sjd-fmt-string-underline-color);
+    white-space: pre;
+}
+.view-struct .value > .string a:hover {
+    color: var(--sjd-fmt-string-hover-color);
+    text-decoration-color: currentColor;
+}
+.view-struct .value > .regexp {
+    color: var(--sjd-fmt-string-color);
+    white-space: pre;
+}
+.view-struct .value-size,
+.view-struct .string-length {
+    display: inline-block;
+    vertical-align: middle;
+    padding-left: 6px;
+    padding-bottom: 2px;
+    color: rgba(153, 153, 153, 0.5);
+    font-size: .916em;
+    line-height: 1;
+}
+.view-struct .value-size:hover,
+.view-struct .string-length:hover {
+    color: inherit;
+}
+.view-struct .string-text-wrapper {
+    display: block;
+    padding: 4px 4px 4px 5.5ex;
+}
+.view-struct .string-text {
+    display: inline;
+    white-space: pre-wrap;
+    padding: 2px 4px 1.5px;
+    background: var(--sjd-fmt-string-highlight-color);
+    color: var(--sjd-fmt-string-color);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+.view-struct .string-value-as-text .string-text {
+    display: block;
+    white-space: pre-wrap;
+    padding-top: 0;
+    padding-bottom: 0;
+    background: rgba(145, 145, 145, 0.1);
+    color: var(--sjd-fmt-color);
+}
+.view-struct .more {
+    color: rgba(127, 127, 127, 0.8);
+    white-space: nowrap;
+}
+.view-struct .string > .more.suffix {
+    margin: 0 1px 0 3px;
+}
+.view-struct .string > .more.suffix::before {
+    content: '…';
+    padding-right: calc(1ch - 4px);
+}
+.view-struct .string > .more.suffix::after {
+    content: ' more';
+}
+.view-struct .string > .more.prefix {
+    padding: 0 .6ch 0 .4ch;
+}
+.view-struct .string > .more.prefix::after {
+    content: '…';
+}
+.view-struct .value > .more-buttons {
+    padding-left: 4ch;
+}
+
+.view-struct .string > .match,
+.view-struct .string-text > .match {
+    background-color: light-dark(#f5e69a, #565638);
+    padding-top: 1px;
+    border-bottom: 1px solid light-dark(transparent, #a7a73b);
+}
+
+.view-struct .error-value {
+    display: inline-block;
+    vertical-align: text-top;
+    margin-top: -1px;
+    line-height: 1.5;
+    border-radius: 3px;
+    border: 1px solid light-dark(#f8c1c1, #0004);
+    background-color: light-dark(#ffe0e0, #622b29);
+    font-size: 84%;
+    color: light-dark(#d23b3b, #c66);
+}
+.view-struct .error-value__name {
+    vertical-align: top;
+    padding: 0px 4px;
+}
+.view-struct .error-value__message {
+    padding: 0 4px;
+    display: inline-block;
+    background-color: light-dark(#fff1f1, #443232);
+}
+
+/* action buttons */
+.view-struct .struct-action-button {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: calc(2em / 9);
+    padding: min(calc(1em / 3), 5px) min(calc(3px + 1em / 3), 8px);
+    margin-top: max(1px - calc(1em / 3), -4px);
+    color: rgba(170, 170, 170, 0.4);
+    background-color: rgba(195, 195, 195, 0.05);
+    border: .85px solid rgba(141, 141, 141, 0.15);
+    border-radius: 3px;
+    line-height: 1;
+    font-size: .75em;
+    cursor: pointer;
+    user-select: none;
+}
+.view-struct .struct-action-button:hover {
+    color: light-dark(#333, #aaa);
+    background-color: rgba(187, 187, 187, 0.25);
+    border-color: rgba(137, 137, 137, 0.4);
+}
+.view-struct .sort-keys > .struct-action-button[data-action="toggle-sort-keys"],
+.view-struct .string-value-as-text > .struct-action-button[data-action="toggle-string-mode"] {
+    color: light-dark(#686, #72b372);
+    background-color: rgba(151, 223, 151, 0.25);
+    border-color: rgba(137, 177, 137, 0.4);
+}
+.view-struct .struct-action-button[data-action="collapse"]::before {
+    content: "–";
+}
+.view-struct .struct-action-button[data-action="value-actions"]::before {
+    content: "ƒ";
+}
+.view-struct .struct-action-button[data-action="toggle-sort-keys"]::before {
+    content: "keys ↓";
+}
+.view-struct .struct-action-button[data-action="toggle-string-mode"]::before {
+    content: "as text";
+}
+
+/* "show more" buttons */
+.view-struct .more-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 2px;
+}
+.view-struct .more-buttons .more-button {
+    vertical-align: top;
+    color: var(--discovery-color, light-dark(black, #ccc));
+    min-height: 0;
+    padding: 4px 8px;
+    margin: 0;
+    background-color: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(127, 127, 127, 0.4);
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 12px;
+    font-family: var(--sjd-ui-font-family);
+    cursor: pointer;
+}
+.view-struct .more-buttons .more-button:hover,
+.view-struct .more-buttons .more-button:focus {
+    background-color: rgba(221, 221, 221, 0.3);
+    border-color: rgba(170, 170, 170, 0.6);
+    outline: none;
+}
+.view-struct .more-buttons .more-button:active {
+    background-color: rgba(131, 131, 131, 0.25);
+    border-color: rgba(127, 127, 127, 0.4);
+}
+
+/* value actions popup */
+.view-struct .struct-actions-popup {
+    position: fixed;
+    z-index: 1000;
+    min-width: 200px;
+    max-width: 480px;
+    padding: 4px;
+    background: light-dark(white, #333);
+    color: light-dark(#333, #ccc);
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    font-family: var(--sjd-ui-font-family);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: normal;
+    text-align: left;
+    cursor: default;
+}
+.view-struct .struct-actions-popup .menu-item {
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.view-struct .struct-actions-popup .menu-item:hover:not(.disabled) {
+    background-color: rgba(127, 127, 127, 0.15);
+}
+.view-struct .struct-actions-popup .menu-item.disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+.view-struct .struct-actions-popup .menu-item.group-start {
+    border-top: 1px solid rgba(127, 127, 127, 0.35);
+    margin-top: 4px;
+}
+.view-struct .struct-actions-popup .menu-item .notes {
+    display: inline;
+    color: light-dark(#666, #999);
+    margin-left: 0.5em;
+    font-family: var(--sjd-monospace-font-family);
+    font-size: 11px;
+    word-break: break-all;
+}
+.view-struct .struct-actions-popup .menu-item .error {
+    font-size: 11px;
+    color: light-dark(rgba(214, 31, 31, 0.77), #e66);
+}

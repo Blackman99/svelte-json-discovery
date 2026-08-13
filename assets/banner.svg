@@ -1,0 +1,55 @@
+<svg width="1280" height="320" viewBox="0 0 1280 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rim" x1="100" y1="80" x2="240" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF3E00"/>
+      <stop offset="1" stop-color="#FF8A00"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="212" y1="196" x2="266" y2="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A00"/>
+      <stop offset="1" stop-color="#FF3E00"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(190 160) scale(420)">
+      <stop stop-color="#FF3E00" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#FF3E00" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="frame">
+      <rect width="1280" height="320" rx="20"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="320" fill="#211D1A"/>
+    <rect width="1280" height="320" fill="url(#glow)"/>
+    <!-- watermark braces -->
+    <text x="1050" y="285" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="380" font-weight="700" fill="#FFFFFF" fill-opacity="0.035">{…}</text>
+
+    <!-- logo glyph -->
+    <g transform="translate(80 46) scale(1.78)">
+      <line x1="85" y1="85" x2="111" y2="111" stroke="url(#handle)" stroke-width="15" stroke-linecap="round"/>
+      <circle cx="54" cy="54" r="38" fill="#262220" stroke="url(#rim)" stroke-width="11"/>
+      <line x1="32" y1="40" x2="32" y2="72" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="42" cy="42" r="4.5" fill="#E17A93"/>
+      <rect x="51" y="37.5" width="25" height="9" rx="4.5" fill="#9CCB43"/>
+      <circle cx="48" cy="56" r="4.5" fill="#E17A93"/>
+      <rect x="57" y="51.5" width="15" height="9" rx="4.5" fill="#58AEDD"/>
+      <circle cx="42" cy="70" r="4.5" fill="#E17A93"/>
+      <rect x="51" y="65.5" width="20" height="9" rx="4.5" fill="#C49BE8"/>
+    </g>
+
+    <!-- wordmark -->
+    <text x="356" y="148" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="54" font-weight="700">
+      <tspan fill="#FF5D1F">svelte</tspan><tspan fill="#7A7168">-</tspan><tspan fill="#F2EDE4">json</tspan><tspan fill="#7A7168">-</tspan><tspan fill="#F2EDE4">discovery</tspan>
+    </text>
+
+    <!-- tagline -->
+    <text x="358" y="196" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="21" fill="#A89E92">The discovery.js struct view — as a standalone Svelte 5 component</text>
+
+    <!-- token-colored sample line, as rendered by the component -->
+    <text x="358" y="252" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="20">
+      <tspan fill="#7A7168">{ </tspan><tspan fill="#D98CA0">expanded</tspan><tspan fill="#7A7168">: </tspan><tspan fill="#58AEDD">true</tspan><tspan fill="#7A7168">, </tspan><tspan fill="#D98CA0">tokens</tspan><tspan fill="#7A7168">: [</tspan><tspan fill="#A3C64C">"string"</tspan><tspan fill="#7A7168">, </tspan><tspan fill="#58AEDD">1024</tspan><tspan fill="#7A7168">, </tspan><tspan fill="#58AEDD">null</tspan><tspan fill="#7A7168">, </tspan><tspan fill="#8D8379">… 42 more</tspan><tspan fill="#7A7168"> ] }</tspan>
+    </text>
+
+    <!-- frame border -->
+    <rect x="0.5" y="0.5" width="1279" height="319" rx="19.5" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  </g>
+</svg>

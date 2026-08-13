@@ -1,11 +1,13 @@
 <!-- Value actions menu — a standalone take on struct/popup-value-actions.js -->
 <script lang="ts">
+    import { portal } from './portal.js';
     import type { PopupAction } from './types.js';
 
-    let { x, y, actions, onclose }: {
+    let { x, y, actions, scheme, onclose }: {
         x: number;
         y: number;
         actions: PopupAction[];
+        scheme: string;
         onclose: () => void;
     } = $props();
 
@@ -53,7 +55,16 @@
 
 <svelte:window onpointerdown={onOutsidePointerDown} onkeydown={onKeydown} onscroll={onclose} />
 
-<div class="struct-actions-popup" bind:this={el} style:left="{x}px" style:top="{y}px" role="menu" tabindex="-1">
+<div
+    class="struct-actions-popup"
+    use:portal
+    bind:this={el}
+    style:left="{x}px"
+    style:top="{y}px"
+    style:color-scheme={scheme}
+    role="menu"
+    tabindex="-1"
+>
     {#each actions as item}
         <div
             class="menu-item"

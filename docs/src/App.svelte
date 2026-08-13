@@ -486,9 +486,11 @@
         box-shadow: var(--shadow);
     }
 
-    /* staggered reveal */
+    /* staggered reveal — fill "backwards" only: a retained transform
+       animation would make the element a containing block for
+       position: fixed descendants */
     .reveal {
-        animation: rise 0.65s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+        animation: rise 0.65s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
         animation-delay: calc(var(--d) * 90ms);
     }
 

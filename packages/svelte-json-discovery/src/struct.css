@@ -274,13 +274,19 @@
     border-color: rgba(127, 127, 127, 0.4);
 }
 
-/* value actions popup */
-.view-struct .struct-actions-popup {
+/* value actions popup — portaled to document.body (so that a transformed
+   or animated ancestor of the viewer can't displace its fixed positioning),
+   hence self-contained selectors and font variables */
+.struct-actions-popup {
+    --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
+    --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
+
     position: fixed;
     z-index: 1000;
     min-width: 200px;
     max-width: 480px;
     padding: 4px;
+    box-sizing: border-box;
     background: light-dark(white, #333);
     color: light-dark(#333, #ccc);
     border: 1px solid rgba(127, 127, 127, 0.35);
@@ -293,23 +299,23 @@
     text-align: left;
     cursor: default;
 }
-.view-struct .struct-actions-popup .menu-item {
+.struct-actions-popup .menu-item {
     padding: 4px 8px;
     border-radius: 3px;
     cursor: pointer;
 }
-.view-struct .struct-actions-popup .menu-item:hover:not(.disabled) {
+.struct-actions-popup .menu-item:hover:not(.disabled) {
     background-color: rgba(127, 127, 127, 0.15);
 }
-.view-struct .struct-actions-popup .menu-item.disabled {
+.struct-actions-popup .menu-item.disabled {
     opacity: 0.5;
     cursor: default;
 }
-.view-struct .struct-actions-popup .menu-item.group-start {
+.struct-actions-popup .menu-item.group-start {
     border-top: 1px solid rgba(127, 127, 127, 0.35);
     margin-top: 4px;
 }
-.view-struct .struct-actions-popup .menu-item .notes {
+.struct-actions-popup .menu-item .notes {
     display: inline;
     color: light-dark(#666, #999);
     margin-left: 0.5em;
@@ -317,7 +323,7 @@
     font-size: 11px;
     word-break: break-all;
 }
-.view-struct .struct-actions-popup .menu-item .error {
+.struct-actions-popup .menu-item .error {
     font-size: 11px;
     color: light-dark(rgba(214, 31, 31, 0.77), #e66);
 }

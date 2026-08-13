@@ -66,6 +66,7 @@
     const expandDepth = $derived(
         expanded === true ? 1 : typeof expanded === 'number' ? Math.max(0, Math.trunc(expanded)) : 0
     );
+    const scheme = $derived(theme === 'auto' ? 'light dark' : theme);
     const rootContext = $derived<ValueContext>({ parent: null, host: { '': data }, key: '', index: 0 });
 
     let rootEl = $state<HTMLElement>();
@@ -174,8 +175,8 @@
 <div
     bind:this={rootEl}
     class="view-struct"
-    style:color-scheme={theme === 'auto' ? 'light dark' : theme}
+    style:color-scheme={scheme}
     onclick={onRootClick}
 >
-    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} />{/key}{#if popup}<ActionsPopup {...popup} onclose={() => (popup = null)} />{/if}
+    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} />{/key}{#if popup}<ActionsPopup {...popup} {scheme} onclose={() => (popup = null)} />{/if}
 </div>

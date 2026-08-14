@@ -33,6 +33,8 @@
     --sjd-error-color: #d23b3b;
     --sjd-error-message-bg: #fff1f1;
     --sjd-toggle-color: #686;
+    --sjd-touch-button-color: #333;
+    --sjd-touch-button-bg: #fff;
     --sjd-popup-bg: #fff;
     --sjd-popup-color: #333;
     --sjd-popup-notes-color: #666;
@@ -61,6 +63,8 @@
     --sjd-error-color: #c66;
     --sjd-error-message-bg: #443232;
     --sjd-toggle-color: #72b372;
+    --sjd-touch-button-color: #aaa;
+    --sjd-touch-button-bg: #50505080;
     --sjd-popup-bg: #333;
     --sjd-popup-color: #ccc;
     --sjd-popup-notes-color: #999;
@@ -87,6 +91,8 @@
         --sjd-error-color: #c66;
         --sjd-error-message-bg: #443232;
         --sjd-toggle-color: #72b372;
+        --sjd-touch-button-color: #aaa;
+        --sjd-touch-button-bg: #50505080;
         --sjd-popup-bg: #333;
         --sjd-popup-color: #ccc;
         --sjd-popup-notes-color: #999;
@@ -310,6 +316,17 @@
     background-color: rgba(151, 223, 151, 0.25);
     border-color: rgba(137, 177, 137, 0.4);
 }
+/* touch devices: hover affordances don't exist, so buttons get a solid
+   surface and a larger hit target (port of the original media block) */
+@media (hover: none), (hover: on-demand) {
+    .view-struct .struct-action-button {
+        padding: 3px 20px;
+        color: var(--sjd-touch-button-color);
+        background-color: var(--sjd-touch-button-bg);
+        border-color: rgba(100, 100, 100, 0.2);
+    }
+}
+
 .view-struct .struct-action-button[data-action="collapse"]::before {
     content: "–";
 }

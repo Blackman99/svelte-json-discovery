@@ -97,17 +97,27 @@
         return path;
     }
 
-    function byteSize(str: string): number {
-        return new Blob([str]).size;
+    // same guard as the original popup-value-actions.js — huge clipboard
+    // writes can hang the browser
+    const MAX_JSON_COPY_SIZE = 12 * 1024 * 1024;
+
+    function byteSize(str: string | undefined): number {
+        return str === undefined ? 0 : new Blob([str]).size;
     }
 
-    function formatSize(str: string | undefined): string {
-        if (str === undefined) {
+    function jsonCopyError(size: number): string | false {
+        return size > MAX_JSON_COPY_SIZE
+            ? 'Can\'t be copied: resulting JSON is over 12 MB'
+            : false;
+    }
+
+    function formatSize(size: number): string {
+        if (size === 0) {
             return '';
         }
 
         // U+2009 thin space as a thousands separator
-        return `, ${byteSize(str).toLocaleString('en-US').replace(/,/g, ' ')} bytes`;
+        return `, ${size.toLocaleString('en-US').replace(/,/g, ' ')} bytes`;
     }
 
     function buildActions(value: unknown, context: ValueContext): PopupAction[] {
@@ -147,18 +157,24 @@
             actions.push({ text: 'Copy path:', notes: path, action: () => copyText(path) });
         }
 
+        const formattedSize = byteSize(formattedStr);
+        const compactSize = byteSize(compactStr);
+        const formattedCopyError = jsonCopyError(formattedSize);
+        const compactCopyError = jsonCopyError(compactSize);
+
         actions.push({
             groupStart: path !== '',
             text: 'Copy as JSON',
-            notes: `(formatted${formatSize(formattedStr)})`,
-            error: jsonError ? `Can't export JSON: ${jsonError}` : false,
-            disabled: Boolean(jsonError),
+            notes: `(formatted${formatSize(formattedSize)})`,
+            error: jsonError ? `Can't export JSON: ${jsonError}` : formattedCopyError,
+            disabled: Boolean(jsonError || formattedCopyError),
             action: () => copyText(formattedStr ?? ''),
         });
         actions.push({
             text: 'Copy as JSON',
-            notes: `(compact${formatSize(compactStr)})`,
-            disabled: Boolean(jsonError),
+            notes: `(compact${formatSize(compactSize)})`,
+            error: compactCopyError,
+            disabled: Boolean(jsonError || compactCopyError),
             action: () => copyText(compactStr ?? ''),
         });
 

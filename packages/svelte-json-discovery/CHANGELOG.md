@@ -1,5 +1,12 @@
 # svelte-json-discovery
 
+## 0.1.1
+
+### Patch Changes
+
+- e7ba090: Expose `./package.json` in the exports map so tooling that reads it through package exports resolution keeps working.
+- 99fe180: Close two remaining gaps with the original struct view: action buttons get the original touch-device treatment (solid surface, larger hit target under `@media (hover: none)`), and "Copy as JSON" is disabled with an explanatory note when the resulting JSON exceeds 12 MB — huge clipboard writes can hang the browser.
+
 ## 0.1.0
 
 ### Minor Changes

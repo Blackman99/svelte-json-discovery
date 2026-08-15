@@ -9,15 +9,6 @@
     const repo = 'https://github.com/Blackman99/svelte-json-discovery';
     const t = $derived(theme.current);
 
-    let query = $state('discovery');
-    let installCopied = $state(false);
-
-    async function copyInstall() {
-        await navigator.clipboard.writeText('pnpm add svelte-json-discovery');
-        installCopied = true;
-        setTimeout(() => (installCopied = false), 1500);
-    }
-
     const navItems: [string, string][] = [
         ['install', 'Install'],
         ['quick-start', 'Quick start'],
@@ -33,6 +24,62 @@
         ['api', 'Props'],
         ['credits', 'Credits'],
     ];
+
+    let query = $state('discovery');
+    let installCopied = $state(false);
+    let activeId = $state('');
+
+    // scrollspy: highlight the section that contains the current reading position
+    $effect(() => {
+        const ids = navItems.map(([id]) => id);
+        let raf = 0;
+
+        function update() {
+            raf = 0;
+
+            let current = '';
+
+            for (const id of ids) {
+                const el = document.getElementById(id);
+
+                if (el && el.getBoundingClientRect().top <= 96) {
+                    current = id;
+                }
+            }
+
+            // pin the last section when the page is scrolled to the bottom
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+                current = ids[ids.length - 1];
+            }
+
+            activeId = current;
+        }
+
+        function schedule() {
+            if (!raf) {
+                raf = requestAnimationFrame(update);
+            }
+        }
+
+        update();
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule, { passive: true });
+
+        return () => {
+            window.removeEventListener('scroll', schedule);
+            window.removeEventListener('resize', schedule);
+
+            if (raf) {
+                cancelAnimationFrame(raf);
+            }
+        };
+    });
+
+    async function copyInstall() {
+        await navigator.clipboard.writeText('pnpm add svelte-json-discovery');
+        installCopied = true;
+        setTimeout(() => (installCopied = false), 1500);
+    }
 
     const installTabs = [
         { label: 'pnpm', code: 'pnpm add svelte-json-discovery' },
@@ -119,7 +166,7 @@
         <nav aria-label='Sections'>
             <span class='side-title'>Contents</span>
             {#each navItems as [id, label] (id)}
-                <a href='#{id}'>{label}</a>
+                <a href='#{id}' class:active={activeId === id}>{label}</a>
             {/each}
         </nav>
     </aside>
@@ -413,6 +460,13 @@
         border-left-color: var(--accent);
         background: color-mix(in srgb, var(--accent) 7%, transparent);
         text-decoration: none;
+    }
+
+    .side a.active {
+        color: var(--accent-ink);
+        border-left-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 7%, transparent);
+        font-weight: 500;
     }
 
     main {

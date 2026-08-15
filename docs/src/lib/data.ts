@@ -86,3 +86,70 @@ export const themedData = {
     honors: ['--discovery-fmt-*', 'light-dark()'],
     values: { string: 'green', number: 123, keyword: null },
 };
+
+export const schemaDemo = {
+    name: 'svelte-json-discovery',
+    version: '0.1.1',
+    license: 'MIT',
+    author: { name: 'Blackman99', email: 'dongsheng@cynopsis.co' },
+    contributors: [
+        { name: 'lahmatiy' },
+        { name: 'discovery.js team' },
+    ],
+    scripts: { build: 'svelte-package', docs: 'vite build' },
+    legacyMain: './index.cjs',
+};
+
+export const packageSchema = {
+    $defs: {
+        person: {
+            type: 'object',
+            title: 'Person',
+            description: 'Someone associated with the package.',
+            properties: {
+                name: { type: 'string', description: 'Display name of the person.' },
+                email: { type: 'string', format: 'email', description: 'Contact address, shown on the npm page.' },
+            },
+        },
+    },
+    type: 'object',
+    title: 'Package manifest',
+    properties: {
+        name: {
+            type: 'string',
+            title: 'Package name',
+            description: 'URL-safe identifier, unique on the npm registry.',
+            examples: ['lodash', '@sveltejs/kit'],
+        },
+        version: {
+            type: 'string',
+            description: 'The version must be parseable by node-semver.',
+            examples: ['1.0.0'],
+        },
+        license: {
+            type: 'string',
+            title: 'License',
+            description: 'SPDX identifier of the license the package is distributed under.',
+            enum: ['MIT', 'Apache-2.0', 'ISC'],
+            default: 'MIT',
+        },
+        author: { $ref: '#/$defs/person' },
+        contributors: {
+            type: 'array',
+            description: 'People who contributed to the package.',
+            items: { $ref: '#/$defs/person' },
+        },
+        scripts: {
+            type: 'object',
+            title: 'Scripts',
+            description: 'Lifecycle and task commands, run with `pnpm run <name>`.',
+            additionalProperties: { type: 'string', description: 'Shell command executed by the package manager.' },
+        },
+        legacyMain: {
+            type: 'string',
+            title: 'Legacy entry',
+            description: 'CommonJS entry point kept for very old bundlers.',
+            deprecated: true,
+        },
+    },
+};

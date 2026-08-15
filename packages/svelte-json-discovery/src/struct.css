@@ -175,6 +175,13 @@
 .view-struct .property {
     color: var(--sjd-fmt-property-color);
 }
+/* fields documented by the JSON Schema passed via the `schema` prop */
+.view-struct .property.has-doc {
+    text-decoration: underline dotted;
+    text-decoration-color: color-mix(in srgb, var(--sjd-fmt-property-color) 55%, transparent);
+    text-underline-offset: 3px;
+    cursor: help;
+}
 .view-struct .value {
     white-space: normal;
     vertical-align: top;
@@ -421,4 +428,74 @@
 .struct-actions-popup .menu-item .error {
     font-size: 11px;
     color: var(--sjd-popup-error-color);
+}
+
+/* JSON Schema field documentation tooltip — portaled to document.body,
+   same reasoning and theming as the actions popup */
+.struct-schema-tip {
+    --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
+    --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
+
+    position: fixed;
+    z-index: 1000;
+    max-width: 380px;
+    padding: 8px 11px;
+    box-sizing: border-box;
+    background: var(--sjd-popup-bg);
+    color: var(--sjd-popup-color);
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    font-family: var(--sjd-ui-font-family);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: normal;
+    text-align: left;
+    pointer-events: none;
+}
+.struct-schema-tip .tip-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.struct-schema-tip .tip-title {
+    font-weight: 600;
+}
+.struct-schema-tip .tip-type {
+    font-family: var(--sjd-monospace-font-family);
+    font-size: 11px;
+    color: var(--sjd-popup-notes-color);
+}
+.struct-schema-tip .tip-deprecated {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sjd-popup-error-color);
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    padding: 0 4px;
+}
+.struct-schema-tip .tip-description {
+    margin-top: 2px;
+    color: var(--sjd-popup-color);
+}
+.struct-schema-tip .tip-row {
+    margin-top: 3px;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+}
+.struct-schema-tip .tip-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sjd-popup-notes-color);
+}
+.struct-schema-tip .tip-row code {
+    font-family: var(--sjd-monospace-font-family);
+    font-size: 11px;
+    word-break: break-all;
 }

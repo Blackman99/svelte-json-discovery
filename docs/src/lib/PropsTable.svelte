@@ -12,6 +12,7 @@
         ['maxCompactPropertyLength', 'number', '35', 'Max property name length in previews'],
         ['match', 'string | RegExp | null', 'null', 'Highlight matches in strings'],
         ['theme', '\'light\' | \'dark\' | \'auto\'', '\'auto\'', 'Color scheme of the viewer'],
+        ['schema', 'object | null', 'null', 'JSON Schema for data; documented fields get hover tooltips'],
     ];
 </script>
 

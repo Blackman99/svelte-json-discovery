@@ -1,6 +1,6 @@
 <script lang='ts'>
     import { JsonViewer } from 'svelte-json-discovery';
-    import { actionsDemo, bigArray, nested, quickStart, searchable, specialTypes, strings, themedData } from './lib/data.js';
+    import { actionsDemo, bigArray, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
     import PropsTable from './lib/PropsTable.svelte';
@@ -27,6 +27,7 @@
         ['highlight', 'Match highlighting'],
         ['special-types', 'Beyond JSON'],
         ['value-actions', 'Value actions'],
+        ['schema-docs', 'Field docs'],
         ['theming', 'Theming'],
         ['playground', 'Playground'],
         ['api', 'Props'],
@@ -80,6 +81,14 @@
   bigint: 9007199254740993n,
   fn: (x) => x * 2
 };`;
+
+    const schemaCode = `<script>
+  import schema from './package.schema.json';
+<\/script>
+
+<!-- keys described by the schema get a dotted underline;
+     hover one to see its documentation -->
+<JsonViewer data={pkg} {schema} expanded={2} />`;
 
     const themingCode = `<JsonViewer data={data} theme="light" />
 <JsonViewer data={data} theme="dark" />
@@ -216,6 +225,17 @@
             note='Try it: expand a node, press <code>ƒ</code>, then paste somewhere. Objects with unsorted keys also get a <code>keys ↓</code> toggle.'
         >
             <JsonViewer data={actionsDemo} expanded={2} theme={t} />
+        </Example>
+
+        <!-- ——— schema field docs ——— -->
+        <Example
+            id='schema-docs'
+            title='Field docs'
+            intro='Pass a <code>schema</code> (JSON Schema) describing your data and documented keys grow a dotted underline — hover one to read its <code>title</code>, <code>description</code>, type, <code>enum</code>, <code>default</code>, examples and deprecation status. Local <code>$ref</code> pointers, <code>items</code>, <code>additionalProperties</code>, <code>patternProperties</code> and <code>allOf</code>/<code>anyOf</code>/<code>oneOf</code> are resolved along the way.'
+            code={schemaCode}
+            note='Try hovering <code>license</code> (enum + default), <code>author</code> → <code>email</code> (resolved through <code>$ref</code>), a key inside <code>scripts</code> (<code>additionalProperties</code>) or <code>legacyMain</code> (deprecated).'
+        >
+            <JsonViewer data={schemaDemo} schema={packageSchema} expanded={2} theme={t} />
         </Example>
 
         <!-- ——— theming ——— -->

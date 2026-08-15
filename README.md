@@ -47,6 +47,8 @@ pnpm add svelte-json-discovery
   window-around-match logic for truncated strings
 - 📋 **Value actions** — copy path, copy as formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants
+- 🧾 **Field docs via JSON Schema** — hover a documented key to see its
+  title, description, type, enum, default and deprecation status
 - 🌗 **Light / dark / auto themes**, honoring `--discovery-fmt-*` CSS variables
 
 See the full prop reference in the

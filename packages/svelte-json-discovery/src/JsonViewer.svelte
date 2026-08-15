@@ -1,8 +1,10 @@
 <!-- JSON viewer — Svelte port of the `struct` view from discoveryjs/discovery -->
 <script lang='ts'>
+    import type { SchemaFieldInfo } from './schema.js';
     import type { PopupAction, StructOptions, ValueContext } from './types.js';
     import { setContext } from 'svelte';
     import ActionsPopup from './ActionsPopup.svelte';
+    import SchemaTooltip from './SchemaTooltip.svelte';
     import { intOption, listLimit } from './struct-helpers.js';
     import { CONTEXT_KEY } from './types.js';
     import { copyText, isRegExp, pathToQuery } from './utils.js';
@@ -34,6 +36,8 @@
         match?: RegExp | string | null;
         /** Color scheme */
         theme?: 'light' | 'dark' | 'auto';
+        /** JSON Schema describing `data`; documented fields get a hover tooltip */
+        schema?: Record<string, unknown> | null;
     };
 
     const {
@@ -49,6 +53,7 @@
         maxCompactPropertyLength,
         match = null,
         theme = 'auto',
+        schema = null,
     }: Props = $props();
 
     const options: StructOptions = $derived({
@@ -72,8 +77,19 @@
 
     let rootEl = $state<HTMLElement>();
     let popup = $state<{ x: number; y: number; actions: PopupAction[] } | null>(null);
+    let schemaTip = $state<{ x: number; y: number; info: SchemaFieldInfo } | null>(null);
 
-    setContext(CONTEXT_KEY, { openActions });
+    setContext(CONTEXT_KEY, { openActions, openSchemaTip, closeSchemaTip });
+
+    function openSchemaTip(anchor: HTMLElement, info: SchemaFieldInfo) {
+        const rect = anchor.getBoundingClientRect();
+
+        schemaTip = { x: rect.left, y: rect.bottom + 4, info };
+    }
+
+    function closeSchemaTip() {
+        schemaTip = null;
+    }
 
     function openActions(anchor: HTMLElement, value: unknown, context: ValueContext) {
         const rect = anchor.getBoundingClientRect();
@@ -197,5 +213,5 @@
     style:color-scheme={scheme}
     onclick={onRootClick}
 >
-    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} />{/key}{#if popup}<ActionsPopup {...popup} theme={themeName} {scheme} onclose={() => (popup = null)} />{/if}
+    {#key data}<ValueNode value={data} {options} autoExpandLimit={expandDepth} context={rootContext} schema={schema ?? undefined} schemaRoot={schema ?? undefined} />{/key}{#if popup}<ActionsPopup {...popup} theme={themeName} {scheme} onclose={() => (popup = null)} />{/if}{#if schemaTip}<SchemaTooltip {...schemaTip} theme={themeName} />{/if}
 </div>

@@ -30,6 +30,8 @@ export interface PopupAction {
 
 export interface JsonViewerApi {
     openActions: (anchor: HTMLElement, value: unknown, context: ValueContext) => void;
+    openSchemaTip: (anchor: HTMLElement, info: import('./schema.js').SchemaFieldInfo) => void;
+    closeSchemaTip: () => void;
 }
 
 export const CONTEXT_KEY = Symbol('svelte-json-discovery');

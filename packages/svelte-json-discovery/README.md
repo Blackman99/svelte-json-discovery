@@ -27,14 +27,19 @@ pnpm add svelte-json-discovery
   length badge, escaped by default with an "as text" toggle (unescaped view)
 - **URL auto-linking** in expanded string previews
 - **Key sorting toggle** (`keys ↓`) for objects with unsorted keys
+- **Field docs via JSON Schema** — pass a `schema` and documented keys get
+  a dotted underline with a hover tooltip (title, description, type, enum,
+  default, examples, deprecation); resolves local `$ref`, `items`,
+  `additionalProperties`, `patternProperties` and combinators
 - **Match highlighting** — pass a substring or RegExp via the `match` prop
   (includes the original "window around the first match" logic for
   truncated strings)
 - **Value actions popup (`ƒ`)** — copy as quoted/unquoted/unescaped string,
   copy path (e.g. `stats.issues[0]["key with spaces"]`), copy as JSON
   (formatted / compact, with byte sizes and circular-structure detection)
-- **Light / dark / auto themes** via `light-dark()`; honors `--discovery-*`
-  CSS custom properties when embedded in a discovery-themed app
+- **Light / dark / auto themes** (`auto` follows `prefers-color-scheme`);
+  honors `--discovery-*` CSS custom properties when embedded in a
+  discovery-themed app
 
 Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 "view as table" toggle, jora query annotations, export dialogs.
@@ -67,6 +72,7 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 | `maxCompactPropertyLength` | `number` | `35` | Max property name length in previews |
 | `match` | `string \| RegExp \| null` | `null` | Highlight matches in strings |
 | `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color scheme |
+| `schema` | `object \| null` | `null` | JSON Schema for `data`; documented fields get hover tooltips |
 
 ## Development
 

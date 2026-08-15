@@ -27,9 +27,13 @@
 
     let query = $state('discovery');
     let installCopied = $state(false);
-    let activeId = $state('');
+    let activeIds = $state<string[]>([]);
+    let sideLinksEl = $state<HTMLElement>();
+    let barTop = $state(0);
+    let barHeight = $state(0);
 
-    // scrollspy: highlight the section that contains the current reading position
+    // scrollspy: highlight every section intersecting the viewport and slide
+    // an indicator bar over the active range (Nuxt-docs style)
     $effect(() => {
         const ids = navItems.map(([id]) => id);
         let raf = 0;
@@ -37,22 +41,44 @@
         function update() {
             raf = 0;
 
-            let current = '';
+            const viewTop = 80;
+            const viewBottom = window.innerHeight;
+            const active: string[] = [];
 
             for (const id of ids) {
                 const el = document.getElementById(id);
 
-                if (el && el.getBoundingClientRect().top <= 96) {
-                    current = id;
+                if (!el) {
+                    continue;
+                }
+
+                const rect = el.getBoundingClientRect();
+                const visible = Math.min(rect.bottom, viewBottom) - Math.max(rect.top, viewTop);
+
+                // count a section as active once a meaningful part of it is on screen
+                if (visible > Math.min(48, rect.height / 2)) {
+                    active.push(id);
                 }
             }
 
-            // pin the last section when the page is scrolled to the bottom
-            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
-                current = ids[ids.length - 1];
+            activeIds = active;
+
+            if (sideLinksEl && active.length > 0) {
+                const links = active
+                    .map(id => sideLinksEl!.querySelector<HTMLElement>(`a[href='#${id}']`))
+                    .filter(el => el !== null);
+
+                if (links.length > 0) {
+                    const first = links[0];
+                    const last = links[links.length - 1];
+
+                    barTop = first.offsetTop;
+                    barHeight = last.offsetTop + last.offsetHeight - first.offsetTop;
+                    return;
+                }
             }
 
-            activeId = current;
+            barHeight = 0;
         }
 
         function schedule() {
@@ -165,9 +191,12 @@
     <aside class='side'>
         <nav aria-label='Sections'>
             <span class='side-title'>Contents</span>
-            {#each navItems as [id, label] (id)}
-                <a href='#{id}' class:active={activeId === id}>{label}</a>
-            {/each}
+            <div class='side-links' bind:this={sideLinksEl}>
+                <div class='spy-bar' style:top='{barTop}px' style:height='{barHeight}px' style:opacity={barHeight > 0 ? 1 : 0}></div>
+                {#each navItems as [id, label] (id)}
+                    <a href='#{id}' class:active={activeIds.includes(id)}>{label}</a>
+                {/each}
+            </div>
         </nav>
     </aside>
 
@@ -430,13 +459,11 @@
     .side nav {
         position: sticky;
         top: 76px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
         padding-top: 48px;
     }
 
     .side-title {
+        display: block;
         font-family: var(--font-mono);
         font-size: 10px;
         font-weight: 600;
@@ -446,26 +473,56 @@
         margin-bottom: 10px;
     }
 
+    .side-links {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding-left: 12px;
+    }
+
+    /* static rail behind the indicator */
+    .side-links::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 2px;
+        bottom: 2px;
+        width: 2px;
+        border-radius: 2px;
+        background: var(--line-soft);
+    }
+
+    /* animated bar spanning the sections currently on screen */
+    .spy-bar {
+        position: absolute;
+        left: 0;
+        width: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+        transition:
+            top 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.2s ease;
+        pointer-events: none;
+    }
+
     .side a {
         font-size: 13.5px;
         color: var(--muted);
-        padding: 3px 10px;
-        margin-left: -10px;
-        border-left: 2px solid transparent;
-        border-radius: 0 6px 6px 0;
+        padding: 3px 8px;
+        border-radius: 6px;
+        transition: color 0.2s ease;
     }
 
     .side a:hover {
         color: var(--accent-ink);
-        border-left-color: var(--accent);
         background: color-mix(in srgb, var(--accent) 7%, transparent);
         text-decoration: none;
     }
 
     .side a.active {
         color: var(--accent-ink);
-        border-left-color: var(--accent);
-        background: color-mix(in srgb, var(--accent) 7%, transparent);
         font-weight: 500;
     }
 

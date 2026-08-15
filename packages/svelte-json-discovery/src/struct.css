@@ -13,7 +13,8 @@
    unchanged. */
 
 .view-struct,
-.struct-actions-popup {
+.struct-actions-popup,
+.struct-schema-tip {
     /* light palette (default) */
     --sjd-app-bg: var(--discovery-background-color, #ffffff);
     --sjd-fmt-color: var(--discovery-fmt-color, #666);
@@ -45,7 +46,8 @@
 
 /* dark palette — keep in sync with the @media block below */
 .view-struct.sjd-theme-dark,
-.struct-actions-popup.sjd-theme-dark {
+.struct-actions-popup.sjd-theme-dark,
+.struct-schema-tip.sjd-theme-dark {
     --sjd-app-bg: var(--discovery-background-color, #242424);
     --sjd-fmt-color: var(--discovery-fmt-color, #999);
     --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
@@ -73,7 +75,8 @@
 
 @media (prefers-color-scheme: dark) {
     .view-struct.sjd-theme-auto,
-    .struct-actions-popup.sjd-theme-auto {
+    .struct-actions-popup.sjd-theme-auto,
+    .struct-schema-tip.sjd-theme-auto {
         --sjd-app-bg: var(--discovery-background-color, #242424);
         --sjd-fmt-color: var(--discovery-fmt-color, #999);
         --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
@@ -433,9 +436,6 @@
 /* JSON Schema field documentation tooltip — portaled to document.body,
    same reasoning and theming as the actions popup */
 .struct-schema-tip {
-    --sjd-ui-font-family: var(--discovery-ui-font-family, system-ui, Arial, sans-serif);
-    --sjd-monospace-font-family: var(--discovery-monospace-font-family, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace);
-
     position: fixed;
     z-index: 1000;
     max-width: 380px;

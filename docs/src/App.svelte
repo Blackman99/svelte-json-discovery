@@ -90,6 +90,11 @@
      hover one to see its documentation -->
 <JsonViewer data={pkg} {schema} expanded={2} />`;
 
+    const schemaTabs = [
+        { label: 'App.svelte', code: schemaCode },
+        { label: 'package.schema.json', code: JSON.stringify(packageSchema, null, 2) },
+    ];
+
     const themingCode = `<JsonViewer data={data} theme="light" />
 <JsonViewer data={data} theme="dark" />
 <JsonViewer data={data} theme="auto" /> <!-- follows prefers-color-scheme -->`;
@@ -232,7 +237,7 @@
             id='schema-docs'
             title='Field docs'
             intro='Pass a <code>schema</code> (JSON Schema) describing your data and documented keys grow a dotted underline — hover one to read its <code>title</code>, <code>description</code>, type, <code>enum</code>, <code>default</code>, examples and deprecation status. Local <code>$ref</code> pointers, <code>items</code>, <code>additionalProperties</code>, <code>patternProperties</code> and <code>allOf</code>/<code>anyOf</code>/<code>oneOf</code> are resolved along the way.'
-            code={schemaCode}
+            tabs={schemaTabs}
             note='Try hovering <code>license</code> (enum + default), <code>author</code> → <code>email</code> (resolved through <code>$ref</code>), a key inside <code>scripts</code> (<code>additionalProperties</code>) or <code>legacyMain</code> (deprecated).'
         >
             <JsonViewer data={schemaDemo} schema={packageSchema} expanded={2} theme={t} />

@@ -1,11 +1,207 @@
+import type { JsonViewerNode, JsonViewerPlugin, JsonViewerRendererProps } from './index.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import PluginComponentRenderer from '../tests/fixtures/PluginComponentRenderer.svelte';
+import ThrowingPluginRenderer from '../tests/fixtures/ThrowingPluginRenderer.svelte';
 import JsonViewer from './JsonViewer.svelte';
 
 afterEach(cleanup);
 
 describe('json viewer', () => {
+    it('keeps the original public node shape assignable', () => {
+        const legacyNode: JsonViewerNode = { path: [], pointer: '', value: null };
+        legacyNode.path = ['updated'];
+        legacyNode.pointer = '/updated';
+        legacyNode.value = true;
+
+        expect(legacyNode).toEqual({ path: ['updated'], pointer: '/updated', value: true });
+    });
+
+    it('renders a stable node descriptor through an instance component plugin', async () => {
+        const user = userEvent.setup();
+        const matchedNodes: JsonViewerNode[] = [];
+        const selections: (readonly (string | number)[] | null)[] = [];
+        const plugin: JsonViewerPlugin = {
+            id: 'component-renderer',
+            renderers: [{
+                when(node) {
+                    if (node.path[0] === 'special') {
+                        matchedNodes.push(node);
+                        return true;
+                    }
+                    return false;
+                },
+                component: PluginComponentRenderer,
+            }],
+        };
+        const customized = render(JsonViewer, {
+            data: { special: 42, normal: 'built in' },
+            expanded: 1,
+            plugins: [plugin],
+            onSelectedPathChange: path => selections.push(path),
+        });
+
+        const customNode = within(customized.container).getByRole('button', {
+            name: 'component:special|0|1|number|/special|[]|true|full|42',
+        });
+        const descriptor = matchedNodes.at(-1);
+        expect(descriptor).toMatchObject({
+            path: ['special'],
+            pointer: '/special',
+            value: 42,
+            key: 'special',
+            index: 0,
+            depth: 1,
+            kind: 'number',
+            parentPath: [],
+            jsonCompatible: true,
+        });
+        expect(Object.isFrozen(descriptor)).toBe(true);
+        expect(Object.isFrozen(descriptor?.path)).toBe(true);
+        expect(Object.isFrozen(descriptor?.parentPath)).toBe(true);
+        expect(within(customized.container).getByText('normal')).toBeTruthy();
+
+        await user.click(customNode);
+        expect(selections).toEqual([['special']]);
+
+        const plain = render(JsonViewer, { data: { special: 42 }, expanded: 1 });
+        expect(within(plain.container).queryByRole('button', { name: /component:special/ })).toBeNull();
+        expect(within(plain.container).getByText((_, node) => node?.classList.contains('number') === true && node.textContent === '42')).toBeTruthy();
+    });
+
+    it('renders a snippet from the first matching plugin renderer', () => {
+        let laterMatchCalls = 0;
+        const firstSnippet = createRawSnippet<[JsonViewerRendererProps]>(getProps => ({
+            render: () => `<span data-testid="first-plugin">snippet:${getProps().node.pointer}:${getProps().density}</span>`,
+        }));
+        const laterSnippet = createRawSnippet<[JsonViewerRendererProps]>(() => ({
+            render: () => '<span data-testid="later-plugin">later</span>',
+        }));
+        const plugins: JsonViewerPlugin[] = [
+            {
+                id: 'first-plugin',
+                renderers: [{
+                    when: node => node.path[0] === 'value',
+                    snippet: firstSnippet,
+                }],
+            },
+            {
+                id: 'later-plugin',
+                renderers: [{
+                    when(node) {
+                        if (node.path[0] === 'value') {
+                            laterMatchCalls++;
+                            return true;
+                        }
+                        return false;
+                    },
+                    snippet: laterSnippet,
+                }],
+            },
+        ];
+        const rendered = render(JsonViewer, {
+            data: { value: 'custom' },
+            expanded: 1,
+            plugins,
+        });
+
+        expect(within(rendered.container).getByTestId('first-plugin').textContent).toBe('snippet:/value:full');
+        expect(within(rendered.container).queryByTestId('later-plugin')).toBeNull();
+        expect(laterMatchCalls).toBe(0);
+    });
+
+    it('omits JSON Pointer metadata for non-JSON locations', () => {
+        let rootNode: JsonViewerNode | undefined;
+        const plugin: JsonViewerPlugin = {
+            id: 'map-root',
+            renderers: [{
+                when(node) {
+                    if (node.depth === 0) {
+                        rootNode = node;
+                        return true;
+                    }
+                    return false;
+                },
+                component: PluginComponentRenderer,
+            }],
+        };
+
+        render(JsonViewer, {
+            data: new Map([['key', 'value']]),
+            plugins: [plugin],
+        });
+
+        expect(screen.getByRole('button', { name: /component:null.*map.*false\|full/ })).toBeTruthy();
+        expect(rootNode).toMatchObject({
+            path: [],
+            pointer: null,
+            key: null,
+            index: null,
+            parentPath: null,
+            kind: 'map',
+            jsonCompatible: false,
+        });
+    });
+
+    it('reuses resilient Error classification for custom node kinds', () => {
+        const error = new Error('custom tag');
+        Object.defineProperty(error, Symbol.toStringTag, { value: 'CustomError' });
+        let errorNode: JsonViewerNode | undefined;
+        const plugin: JsonViewerPlugin = {
+            id: 'custom-error',
+            renderers: [{
+                when(node) {
+                    if (node.path[0] === 'error') {
+                        errorNode = node;
+                        return true;
+                    }
+                    return false;
+                },
+                component: PluginComponentRenderer,
+            }],
+        };
+
+        render(JsonViewer, {
+            data: { error },
+            expanded: 1,
+            plugins: [plugin],
+        });
+
+        expect(screen.getByRole('button', { name: /component:error.*error/ })).toBeTruthy();
+        expect(errorNode?.kind).toBe('error');
+    });
+
+    it('falls back locally when a renderer predicate or component throws', () => {
+        const plugin: JsonViewerPlugin = {
+            id: 'hostile-renderers',
+            renderers: [{
+                when(node) {
+                    if (node.path[0] === 'predicate') {
+                        throw new Error('predicate failed');
+                    }
+                    return node.path[0] === 'component';
+                },
+                component: ThrowingPluginRenderer,
+            }],
+        };
+
+        render(JsonViewer, {
+            data: {
+                predicate: 'built in after predicate failure',
+                component: 'built in after component failure',
+                unaffected: 'still visible',
+            },
+            expanded: 1,
+            plugins: [plugin],
+        });
+
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"built in after predicate failure"')).toBeTruthy();
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"built in after component failure"')).toBeTruthy();
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"still visible"')).toBeTruthy();
+    });
+
     it('shows an accessible search input only when requested', () => {
         const { unmount } = render(JsonViewer, { data: { hello: 'world' } });
 

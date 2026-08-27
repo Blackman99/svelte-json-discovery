@@ -42,6 +42,8 @@ pnpm add svelte-json-discovery
 - **Controlled paths and component controller** — control expansion and
   selection from application state, or call `expand`, `collapse`, `focus`,
   `scrollTo`, `select`, `nextMatch`, and `previousMatch` through `bind:this`
+- **Instance-scoped custom renderers** — ordered plugins can replace matching
+  nodes with a Svelte Component or Snippet while preserving the built-in fallback
 - **Value actions popup (`ƒ`)** — copy as quoted/unquoted/unescaped string,
   copy path (e.g. `stats.issues[0]["key with spaces"]`), copy as JSON
   Pointer (RFC 6901), or copy as JSON (formatted / compact, with byte sizes)
@@ -98,6 +100,32 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 are exported for host integrations. `expanded` remains the initial expansion
 depth when `expandedPaths` is not supplied.
 
+### Custom node renderers
+
+```svelte
+<script lang='ts'>
+    import type { JsonViewerPlugin } from 'svelte-json-discovery';
+    import { JsonViewer } from 'svelte-json-discovery';
+    import StatusRenderer from './StatusRenderer.svelte';
+
+    const plugins: JsonViewerPlugin[] = [{
+        id: 'status-pill',
+        renderers: [{
+            when: node => node.key === 'status',
+            component: StatusRenderer,
+        }],
+    }];
+</script>
+
+<JsonViewer data={{ status: 'healthy' }} {plugins} />
+```
+
+`JsonViewerNode` is a stable, immutable descriptor containing `path`, `pointer`,
+`value`, `key`, `index`, `depth`, `kind`, `parentPath`, and `jsonCompatible`.
+Renderer props also receive `density` and the public Viewer `controller`.
+Plugin and renderer contracts are **experimental** in this release; registration
+is per Viewer instance, predicates run in order, and the first match wins.
+
 ## Props
 
 | Prop | Type | Default | Description |
@@ -124,6 +152,7 @@ depth when `expandedPaths` is not supplied.
 | `onSelectedPathChange` | `(path: JsonPath \| null) => void` | — | Called when selection changes |
 | `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color scheme |
 | `schema` | `object \| null` | `null` | JSON Schema for `data`; documented fields get hover tooltips |
+| `plugins` | `readonly JsonViewerPlugin[]` | `[]` | Experimental ordered, instance-scoped node renderers |
 
 ## Development
 

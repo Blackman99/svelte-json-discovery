@@ -1,3 +1,5 @@
+import type { Component, Snippet } from 'svelte';
+
 export interface StructOptions {
     match: RegExp | string | null;
     matchIgnoreCase: boolean;
@@ -13,10 +15,69 @@ export interface StructOptions {
 
 export type JsonPath = readonly (string | number)[];
 
+export type JsonViewerNodeKind
+    = | 'array'
+        | 'bigint'
+        | 'boolean'
+        | 'date'
+        | 'error'
+        | 'function'
+        | 'map'
+        | 'null'
+        | 'number'
+        | 'object'
+        | 'regexp'
+        | 'set'
+        | 'string'
+        | 'symbol'
+        | 'typed-array'
+        | 'undefined'
+        | 'unknown';
+
+/** Stable immutable description of a rendered value and its canonical location. */
 export interface JsonViewerNode {
     path: JsonPath;
     pointer: string | null;
     value: unknown;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly key?: string | number | null;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly index?: number | null;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly depth?: number;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly kind?: JsonViewerNodeKind;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly parentPath?: JsonPath | null;
+    /** Always present on descriptors supplied by JsonViewer; optional for 0.3 assignment compatibility. */
+    readonly jsonCompatible?: boolean;
+}
+
+/** @experimental Renderer contracts may evolve from integration feedback. */
+export type JsonViewerRendererDensity = 'compact' | 'full';
+
+/** @experimental Renderer contracts may evolve from integration feedback. */
+export interface JsonViewerRendererProps {
+    readonly node: JsonViewerNode;
+    readonly density: JsonViewerRendererDensity;
+    readonly controller: JsonViewerHandle;
+}
+
+/** @experimental Renderer contracts may evolve from integration feedback. */
+export type JsonViewerRenderer = {
+    readonly when: (node: JsonViewerNode) => boolean;
+    readonly component: Component<JsonViewerRendererProps>;
+    readonly snippet?: never;
+} | {
+    readonly when: (node: JsonViewerNode) => boolean;
+    readonly component?: never;
+    readonly snippet: Snippet<[JsonViewerRendererProps]>;
+};
+
+/** @experimental Plugin contracts may evolve from integration feedback. */
+export interface JsonViewerPlugin {
+    readonly id: string;
+    readonly renderers?: readonly JsonViewerRenderer[];
 }
 
 export interface JsonViewerSearchState {
@@ -58,6 +119,8 @@ export interface PopupAction {
 }
 
 export interface JsonViewerApi {
+    controller: JsonViewerHandle;
+    resolveRenderer: (node: JsonViewerNode) => JsonViewerRenderer | null;
     openActions: (anchor: HTMLElement, value: unknown, context: ValueContext) => void;
     openSchemaTip: (anchor: HTMLElement, info: import('./schema.js').SchemaFieldInfo) => void;
     closeSchemaTip: () => void;

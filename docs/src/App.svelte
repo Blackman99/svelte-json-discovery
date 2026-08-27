@@ -1,9 +1,11 @@
 <script lang='ts'>
+    import type { JsonViewerPlugin } from 'svelte-json-discovery';
     import { JsonViewer } from 'svelte-json-discovery';
     import { actionsDemo, bigArray, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
     import PropsTable from './lib/PropsTable.svelte';
+    import StatusRenderer from './lib/StatusRenderer.svelte';
     import { theme, toggleTheme } from './lib/theme.svelte.js';
 
     const repo = 'https://github.com/Blackman99/svelte-json-discovery';
@@ -17,6 +19,7 @@
         ['strings', 'Strings'],
         ['highlight', 'Match highlighting'],
         ['search-control', 'Search & control'],
+        ['plugins', 'Custom renderers'],
         ['special-types', 'Beyond JSON'],
         ['value-actions', 'Value actions'],
         ['schema-docs', 'Field docs'],
@@ -156,6 +159,29 @@
 <button onclick={() => viewer.scrollTo(['keywords', 0])}>
   Jump to the first keyword
 </button>`;
+
+    const pluginData = { service: 'checkout-api', status: 'healthy', latencyMs: 84 };
+    const plugins: JsonViewerPlugin[] = [{
+        id: 'status-pill',
+        renderers: [{
+            when: node => node.key === 'status',
+            component: StatusRenderer,
+        }],
+    }];
+    const pluginsCode = `<script lang="ts">
+  import { JsonViewer, type JsonViewerPlugin } from 'svelte-json-discovery';
+  import StatusRenderer from './StatusRenderer.svelte';
+
+  const plugins: JsonViewerPlugin[] = [{
+    id: 'status-pill',
+    renderers: [{
+      when: node => node.key === 'status',
+      component: StatusRenderer
+    }]
+  }];
+<\/script>
+
+<JsonViewer data={service} {plugins} />`;
 
     const specialCode = `const data = {
   date: new Date(),
@@ -308,6 +334,17 @@
             note='Use <code>search</code>, <code>expandedPaths</code> and <code>selectedPath</code> for controlled state. The exported <code>JsonPath</code>, <code>JsonViewerSearchState</code> and <code>JsonViewerHandle</code> types keep host integrations typed.'
         >
             <JsonViewer data={searchable} showSearch expanded={0} theme={t} />
+        </Example>
+
+        <!-- ——— custom renderers ——— -->
+        <Example
+            id='plugins'
+            title='Custom renderers'
+            intro='Register ordered, instance-scoped plugins to replace matching Tree nodes with a Svelte Component or Snippet. The first match wins and the built-in presentation remains the fallback.'
+            code={pluginsCode}
+            note='<code>JsonViewerNode</code> is stable and immutable. The plugin and renderer contracts are experimental in this release and may evolve from integration feedback.'
+        >
+            <JsonViewer data={pluginData} {plugins} expanded={1} theme={t} />
         </Example>
 
         <!-- ——— special types ——— -->

@@ -22,6 +22,7 @@
         ['onSelectedPathChange', '(path) => void', '—', 'Called when selection changes'],
         ['theme', '\'light\' | \'dark\' | \'auto\'', '\'auto\'', 'Color scheme of the viewer'],
         ['schema', 'object | null', 'null', 'JSON Schema for data; documented fields get hover tooltips'],
+        ['plugins', 'readonly JsonViewerPlugin[]', '[]', 'Experimental ordered, instance-scoped node renderers'],
     ];
 </script>
 

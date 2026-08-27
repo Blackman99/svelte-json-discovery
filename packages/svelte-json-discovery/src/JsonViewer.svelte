@@ -1,7 +1,7 @@
 <!-- JSON viewer — Svelte port of the `struct` view from discoveryjs/discovery -->
 <script lang='ts'>
     import type { SchemaFieldInfo } from './schema.js';
-    import type { JsonPath, JsonViewerSearchState, PopupAction, StructOptions, ValueContext } from './types.js';
+    import type { JsonPath, JsonViewerHandle, JsonViewerNode, JsonViewerPlugin, JsonViewerRenderer, JsonViewerSearchState, PopupAction, StructOptions, ValueContext } from './types.js';
     import { setContext, tick } from 'svelte';
     import ActionsPopup from './ActionsPopup.svelte';
     import { safeErrorMessage } from './collection.js';
@@ -58,6 +58,8 @@
         theme?: 'light' | 'dark' | 'auto';
         /** JSON Schema describing `data`; documented fields get a hover tooltip */
         schema?: Record<string, unknown> | null;
+        /** Ordered, instance-scoped custom renderers */
+        plugins?: readonly JsonViewerPlugin[];
     };
 
     const {
@@ -83,6 +85,7 @@
         onSelectedPathChange,
         theme = 'auto',
         schema = null,
+        plugins = [],
     }: Props = $props();
 
     const expandDepth = $derived(
@@ -116,7 +119,19 @@
     let popup = $state<{ x: number; y: number; actions: PopupAction[]; anchor: HTMLElement } | null>(null);
     let schemaTip = $state<{ x: number; y: number; info: SchemaFieldInfo } | null>(null);
 
+    const controller: JsonViewerHandle = Object.freeze({
+        expand,
+        collapse,
+        focus,
+        scrollTo,
+        select,
+        nextMatch,
+        previousMatch,
+    });
+
     setContext(CONTEXT_KEY, {
+        controller,
+        resolveRenderer,
         openActions,
         openSchemaTip,
         closeSchemaTip,
@@ -130,6 +145,24 @@
         isFocused,
         setFocused,
     });
+
+    function resolveRenderer(node: JsonViewerNode): JsonViewerRenderer | null {
+        for (const plugin of plugins) {
+            for (const renderer of plugin.renderers ?? []) {
+                try {
+                    if (renderer.when(node)) {
+                        return renderer;
+                    }
+                }
+                catch {
+                // A hostile predicate is local to this renderer. Continue to
+                // the next registered renderer and preserve the built-in fallback.
+                }
+            }
+        }
+
+        return null;
+    }
 
     const effectiveSearch = $derived<RegExp | string | null>(
         search === undefined

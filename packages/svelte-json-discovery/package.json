@@ -34,6 +34,14 @@
             "svelte": "./dist/inspector/index.js",
             "default": "./dist/inspector/index.js"
         },
+        "./validation": {
+            "types": "./dist/validation/index.d.ts",
+            "default": "./dist/validation/index.js"
+        },
+        "./validation/ajv": {
+            "types": "./dist/validation/ajv.d.ts",
+            "default": "./dist/validation/ajv.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "./dist/index.d.ts",
@@ -56,6 +64,7 @@
         "@testing-library/svelte": "^5.4.2",
         "@testing-library/user-event": "^14.6.6",
         "@tsconfig/svelte": "^5.0.8",
+        "ajv": "^8.20.0",
         "jsdom": "^30.0.1",
         "svelte": "^5.56.9",
         "svelte-check": "^4.7.3",

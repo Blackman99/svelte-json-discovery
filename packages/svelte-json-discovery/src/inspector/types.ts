@@ -1,6 +1,9 @@
 import type { Component, ComponentProps, Snippet } from 'svelte';
 import type JsonViewer from '../JsonViewer.svelte';
 import type { JsonPath, JsonViewerHandle, JsonViewerNode } from '../types.js';
+import type { JsonValidator, ValidationIssue } from '../validation/types.js';
+
+export type { JsonValidator, ValidationIssue, ValidationIssueSeverity } from '../validation/types.js';
 
 export type JsonInspectorView = 'tree' | 'raw' | 'table' | 'diff';
 
@@ -22,19 +25,6 @@ export interface RawDiagnostic {
     readonly message: string;
     readonly path: JsonPath;
     readonly pointer: string;
-}
-
-export type ValidationIssueSeverity = 'error' | 'warning' | 'info';
-
-export interface ValidationIssue {
-    readonly path: JsonPath;
-    /** Canonical RFC 6901 Pointer, or null for a non-standard JSON location. */
-    readonly pointer: string | null;
-    readonly severity: ValidationIssueSeverity;
-    readonly code: string;
-    readonly message: string;
-    readonly source: string;
-    readonly details?: unknown;
 }
 
 export type JsonInspectorTableSortDirection = 'ascending' | 'descending';
@@ -103,4 +93,6 @@ export type JsonInspectorProps = ComponentProps<typeof JsonViewer> & {
     issues?: readonly ValidationIssue[];
     /** Return false to replace the default Tree navigation; otherwise augments it. */
     onIssueSelect?: (issue: ValidationIssue) => boolean | Promise<boolean | void> | void;
+    /** Host validation function. Runs asynchronously and is cancelled with data or validator changes. */
+    validate?: JsonValidator;
 };

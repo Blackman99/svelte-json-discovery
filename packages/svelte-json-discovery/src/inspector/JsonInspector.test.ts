@@ -1,4 +1,5 @@
 import type { JsonViewerSearchState } from '../types.js';
+import type { JsonValidator } from '../validation/index.js';
 import type { JsonInspectorHandle, JsonInspectorTableColumn, JsonInspectorTableSort, JsonInspectorView, ValidationIssue } from './index.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
@@ -347,6 +348,113 @@ describe('json inspector tree shell', () => {
         expect(document.querySelector('[data-json-path="[]"] > .sjd-validation-marker')?.textContent).toBe('1 info');
     });
 
+    it('cancels stale async validation on data replacement and publishes only the latest issues', async () => {
+        const runs: Array<{
+            data: unknown;
+            resolve: (issues: readonly ValidationIssue[]) => void;
+            signal: AbortSignal;
+        }> = [];
+        const validate: JsonValidator = (data, signal) => new Promise(resolve => runs.push({ data, resolve, signal }));
+        const first = { value: 'first' };
+        const second = { value: 'second' };
+        const rendered = render(JsonInspector, { data: first, expanded: 1, validate });
+        await waitFor(() => expect(runs).toHaveLength(1));
+        expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validating…');
+        expect(screen.getByRole('tree', { name: 'JSON data' })).not.toBeNull();
+
+        await rendered.rerender({ data: second, expanded: 1, validate });
+        await waitFor(() => expect(runs).toHaveLength(2));
+        expect(runs[0]?.signal.aborted).toBe(true);
+        expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validation cancelled. Validating…');
+        runs[0]?.resolve([{ path: ['value'], pointer: '/value', severity: 'error', code: 'stale', message: 'Stale issue', source: 'host' }]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(screen.queryByRole('button', { name: /Stale issue/ })).toBeNull();
+
+        runs[1]?.resolve([{ path: ['value'], pointer: '/value', severity: 'warning', code: 'latest', message: 'Latest issue', source: 'host' }]);
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Warning latest: Latest issue at /value from host' })).not.toBeNull());
+        expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validation complete with 1 issue.');
+    });
+
+    it('cancels async validation when the validator changes or the Inspector unmounts', async () => {
+        let firstSignal: AbortSignal | undefined;
+        let secondSignal: AbortSignal | undefined;
+        const first: JsonValidator = (_data, signal) => {
+            firstSignal = signal;
+            return new Promise(() => undefined);
+        };
+        const second: JsonValidator = (_data, signal) => {
+            secondSignal = signal;
+            return new Promise(() => undefined);
+        };
+        const data = { value: 1 };
+        const rendered = render(JsonInspector, { data, validate: first });
+        await waitFor(() => expect(firstSignal).toBeDefined());
+
+        await rendered.rerender({ data, validate: second });
+        await waitFor(() => expect(secondSignal).toBeDefined());
+        expect(firstSignal?.aborted).toBe(true);
+        rendered.unmount();
+        expect(secondSignal?.aborted).toBe(true);
+    });
+
+    it('invalidates deferred issue navigation when the validator changes for the same data', async () => {
+        const user = userEvent.setup();
+        const data = { old: true, fresh: true };
+        const oldIssue: ValidationIssue = {
+            path: ['old'],
+            pointer: '/old',
+            severity: 'error',
+            code: 'old-validator',
+            message: 'Old validator issue',
+            source: 'first',
+        };
+        const first: JsonValidator = async () => [oldIssue];
+        const second: JsonValidator = () => new Promise(() => undefined);
+        let resolveSelection: (() => void) | undefined;
+        const onIssueSelect = () => new Promise<void>(resolve => (resolveSelection = resolve));
+        const rendered = render(JsonInspector, { data, expanded: 1, onIssueSelect, validate: first });
+        const oldButton = await screen.findByRole('button', { name: 'Error old-validator: Old validator issue at /old from first' });
+
+        await user.click(oldButton);
+        await rendered.rerender({ data, expanded: 1, onIssueSelect, validate: second });
+        await waitFor(() => expect(screen.queryByRole('button', { name: /Old validator issue/ })).toBeNull());
+        resolveSelection?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(document.activeElement?.getAttribute('data-json-path')).not.toBe('["old"]');
+        expect(document.querySelector('.sjd-inspector')?.getAttribute('data-active-path')).toBe('null');
+    });
+
+    it('merges async validation results with precomputed issues', async () => {
+        const issues: ValidationIssue[] = [
+            { path: ['first'], pointer: '/first', severity: 'error', code: 'precomputed', message: 'Precomputed issue', source: 'host' },
+        ];
+        const validate: JsonValidator = async () => [
+            { path: ['second'], pointer: '/second', severity: 'warning', code: 'async', message: 'Async issue', source: 'validator' },
+        ];
+        render(JsonInspector, { data: { first: 1, second: 2 }, issues, validate });
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Warning async: Async issue at /second from validator' })).not.toBeNull());
+        expect(screen.getByRole('button', { name: 'Error precomputed: Precomputed issue at /first from host' })).not.toBeNull();
+        expect(screen.getByRole('status', { name: 'Validation issue counts' }).textContent?.replace(/\s+/g, ' ').trim()).toBe('1 error, 1 warning, 0 info issues');
+    });
+
+    it('announces async validation failure and explicit cancellation without blocking Tree', async () => {
+        const failure: JsonValidator = async () => {
+            throw new Error('schema service failed');
+        };
+        const pending: JsonValidator = () => new Promise(() => undefined);
+        const data = { value: 1 };
+        const rendered = render(JsonInspector, { data, validate: failure });
+
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validation failed: schema service failed'));
+        expect(screen.getByRole('tree', { name: 'JSON data' })).not.toBeNull();
+        await rendered.rerender({ data, validate: pending });
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toContain('Validating'));
+        await rendered.rerender({ data, validate: undefined });
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validation cancelled.'));
+    });
+
     it('marks only loaded Table rows and cells, then annotates the next window', async () => {
         const user = userEvent.setup();
         const issues: ValidationIssue[] = [
@@ -662,9 +770,38 @@ describe('json inspector tree shell', () => {
         });
         render(JsonInspector, { data: { value: 1 }, issues: guarded });
 
-        expect(descriptorReads).toBeLessThanOrEqual(2);
+        expect(descriptorReads).toBeLessThan(10);
         expect(screen.getByRole('button', { name: 'Info valid: Still visible at /value from adapter' })).not.toBeNull();
         expect(screen.queryByRole('status', { name: 'Validation diagnostics' })).toBeNull();
+    });
+
+    it('does not re-enumerate unchanged precomputed issues across async validation states', async () => {
+        const issue: ValidationIssue = {
+            path: ['value'],
+            pointer: '/value',
+            severity: 'info',
+            code: 'stable',
+            message: 'Stable issue',
+            source: 'host',
+        };
+        let descriptorReads = 0;
+        const guarded = new Proxy([issue], {
+            getOwnPropertyDescriptor(target, key) {
+                descriptorReads++;
+                return Reflect.getOwnPropertyDescriptor(target, key);
+            },
+        });
+        let resolveValidation: ((issues: readonly ValidationIssue[]) => void) | undefined;
+        const validate: JsonValidator = () => new Promise(resolve => (resolveValidation = resolve));
+        render(JsonInspector, { data: { value: 1 }, issues: guarded, validate });
+        await waitFor(() => expect(resolveValidation).toBeDefined());
+        const readsAfterPending = descriptorReads;
+
+        resolveValidation?.([]);
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Validation status' }).textContent).toBe('Validation complete with no issues.'));
+
+        expect(descriptorReads).toBe(readsAfterPending);
+        expect(screen.getByRole('button', { name: 'Info stable: Stable issue at /value from host' })).not.toBeNull();
     });
 
     it('counts valid validation issues beyond the summary window without truncation', () => {

@@ -187,6 +187,48 @@ issues are ignored with a local diagnostic, and an issue whose target no longer
 exists reports a local navigation status. `onIssueSelect` runs before default
 navigation: return `false` to replace it, or return anything else to augment it.
 
+`validate(data, signal)` adds host-provided asynchronous validation. It runs in
+addition to `issues`; changing `data` or the validator, removing the validator,
+or unmounting the Inspector aborts the previous signal and suppresses stale
+results. Pending, successful, failed and cancelled runs are announced without
+blocking Tree inspection. Import its stable type from the validator-neutral
+entry:
+
+```svelte
+<script lang='ts'>
+    import type { JsonValidator } from 'svelte-json-discovery/validation';
+
+    const validate: JsonValidator = async (data, signal) => {
+        const issues = await validationService(data, { signal });
+        return issues;
+    };
+</script>
+
+<JsonInspector {data} {validate} />
+```
+
+The optional Ajv adapter accepts Ajv's compiled validator without importing Ajv
+itself. The host application owns the Ajv dependency:
+
+```svelte
+<script lang='ts'>
+    import Ajv from 'ajv';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+    import { createAjvValidator } from 'svelte-json-discovery/validation/ajv';
+
+    const check = new Ajv({ allErrors: true }).compile(schema);
+    const validate = createAjvValidator(check);
+</script>
+
+<JsonInspector {data} {validate} />
+```
+
+Ajv `instancePath` values become canonical paths and RFC 6901 Pointers; escaped
+tokens and array indices are normalized against the current data. Keyword,
+message, source, default error severity and the original Ajv error in `details`
+are preserved deterministically. `./validation/ajv` is isolated from both the
+main package entry and the generic `./validation` entry.
+
 ### Search and programmatic control
 
 ```svelte

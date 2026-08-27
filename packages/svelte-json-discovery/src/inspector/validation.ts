@@ -1,5 +1,5 @@
 import type { JsonPath } from '../types.js';
-import type { ValidationIssue, ValidationIssueSeverity } from './types.js';
+import type { ValidationIssue, ValidationIssueSeverity } from '../validation/types.js';
 import { pathKey, pathToPointer } from '../utils.js';
 
 export interface ValidationState {
@@ -59,6 +59,13 @@ function isArrayIndex(key: string, length: number): boolean {
 
 export function issuesAtPath(state: ValidationState, path: JsonPath): readonly ValidationIssue[] {
     return state.byPath.get(pathKey(path)) ?? [];
+}
+
+export function combineValidationStates(...states: readonly ValidationState[]): ValidationState {
+    return createState(
+        states.flatMap(state => state.issues),
+        states.reduce((total, state) => total + state.invalidCount, 0),
+    );
 }
 
 export function issuesBelowPath(state: ValidationState, path: JsonPath): readonly ValidationIssue[] {

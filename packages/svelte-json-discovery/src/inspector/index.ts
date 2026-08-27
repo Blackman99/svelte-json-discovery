@@ -8,6 +8,7 @@ export type {
     JsonInspectorTableSort,
     JsonInspectorTableSortDirection,
     JsonInspectorView,
+    JsonValidator,
     RawDiagnostic,
     RawDiagnosticCode,
     ValidationIssue,

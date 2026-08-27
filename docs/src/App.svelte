@@ -1,6 +1,7 @@
 <script lang='ts'>
     import type { JsonViewerPlugin } from 'svelte-json-discovery';
     import type { JsonInspectorTableColumn, ValidationIssue } from 'svelte-json-discovery/inspector';
+    import type { JsonValidator } from 'svelte-json-discovery/validation';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
     import { actionsDemo, bigArray, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
@@ -21,8 +22,16 @@
     const inspectorIssues: ValidationIssue[] = [
         { path: [1, 'role'], pointer: '/1/role', severity: 'warning', code: 'role-review', message: 'Confirm reviewer access', source: 'policy' },
         { path: [2, 'profile', 'active'], pointer: '/2/profile/active', severity: 'info', code: 'inactive', message: 'Contributor is inactive', source: 'directory' },
-        { path: [4, 'profile', 'active'], pointer: '/4/profile/active', severity: 'error', code: 'inactive-reviewer', message: 'Reviewer must be active', source: 'policy' },
     ];
+    const inspectorValidate: JsonValidator = async (_data, signal) => {
+        await Promise.resolve();
+        if (signal.aborted) {
+            return [];
+        }
+        return [
+            { path: [4, 'profile', 'active'], pointer: '/4/profile/active', severity: 'error', code: 'inactive-reviewer', message: 'Reviewer must be active', source: 'async-policy' },
+        ];
+    };
 
     const navItems: [string, string][] = [
         ['install', 'Install'],
@@ -151,6 +160,7 @@
     JsonInspectorView,
     ValidationIssue
   } from 'svelte-json-discovery/inspector';
+  import type { JsonValidator } from 'svelte-json-discovery/validation';
   import { JsonInspector } from 'svelte-json-discovery/inspector';
 
   let view = $state<JsonInspectorView>('tree');
@@ -172,6 +182,14 @@
     message: 'Confirm display name',
     source: 'policy'
   }];
+  const validate: JsonValidator = async (_data, signal) => signal.aborted ? [] : [{
+    path: [1, 'profile', 'active'],
+    pointer: '/1/profile/active',
+    severity: 'error',
+    code: 'inactive-reviewer',
+    message: 'Reviewer must be active',
+    source: 'async-policy'
+  }];
 <\/script>
 
 <JsonInspector
@@ -180,6 +198,7 @@
   onViewChange={next => view = next}
   {tableColumns}
   {issues}
+  {validate}
   limit={3}
   maxRawBytes={12 * 1024 * 1024}
   showSearch
@@ -362,11 +381,11 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath shares search, selection, canonical paths and precomputed validation issues across Tree, asynchronous strict Raw and a configurable object-array Table.'
+            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw and Table, while precomputed and cancellable async validation feed one issue workflow.'
             code={inspectorCode}
-            note='The summary and inline markers come from validator-neutral issues. Activate an issue to reveal it in Tree without clearing search. Table marks only loaded rows and cells; Show more reads and annotates the next batch.'
+            note='The summary combines two precomputed issues with one async-policy issue. Validation state is announced without blocking Tree; changing data aborts stale work. The optional Ajv adapter stays in a separate entry point.'
         >
-            <JsonInspector data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} />
+            <JsonInspector data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
         </Example>
 
         <!-- ——— expand depth ——— -->

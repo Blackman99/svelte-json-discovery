@@ -2,6 +2,7 @@
     import type { JsonPath, JsonViewerHandle, JsonViewerSearchState, StructOptions } from '../types.js';
     import type { StrictJsonResult } from './strict-json.js';
     import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic, ValidationIssue } from './types.js';
+    import type { ValidationState } from './validation.js';
     import { onDestroy, tick } from 'svelte';
     import JsonViewer from '../JsonViewer.svelte';
     import { normalizeSearchQuery } from '../search.js';
@@ -11,7 +12,7 @@
     import { DEFAULT_MAX_RAW_BYTES, generateStrictJson } from './strict-json.js';
     import { createTableWindow } from './table-model.js';
     import TableView from './TableView.svelte';
-    import { highestSeverity, issueMarkerLabel, normalizeValidationIssues } from './validation.js';
+    import { combineValidationStates, highestSeverity, issueMarkerLabel, normalizeValidationIssues } from './validation.js';
     import ValidationSummary from './ValidationSummary.svelte';
     import './inspector.css';
 
@@ -47,6 +48,7 @@
         onTableSortChange,
         issues,
         onIssueSelect,
+        validate,
         ...viewerProps
     }: JsonInspectorProps = $props();
 
@@ -76,6 +78,17 @@
     let rawController: AbortController | undefined;
     let rawCancellationAnnounced = $state(false);
     let tableVersion = $state(0);
+    let validationRunGeneration = 0;
+    let validationRestarted = false;
+    let asyncValidation = $state<{
+        announcement: string;
+        state: ValidationState;
+        status: 'cancelled' | 'failure' | 'idle' | 'pending' | 'success';
+    }>({
+        announcement: '',
+        state: normalizeValidationIssues(undefined),
+        status: 'idle',
+    });
     let rawResult = $state<StrictJsonResult | { status: 'pending'; text: null; diagnostics: readonly []; bytes: 0; reason: string }>({
         status: 'pending',
         text: null,
@@ -89,6 +102,10 @@
     let previousControlledView = view;
     // svelte-ignore state_referenced_locally
     let previousIssues = issues;
+    // svelte-ignore state_referenced_locally
+    let previousValidationData = data;
+    // svelte-ignore state_referenced_locally
+    let previousValidator = validate;
 
     onDestroy(() => {
         destroyed = true;
@@ -122,7 +139,94 @@
         maxPropertyLength: intOption(viewerProps.maxPropertyLength, Infinity),
         maxCompactPropertyLength: intOption(viewerProps.maxCompactPropertyLength, 35),
     });
-    const validationState = $derived(normalizeValidationIssues(issues));
+    const precomputedValidationState = $derived(normalizeValidationIssues(issues));
+    const validationState = $derived(combineValidationStates(
+        precomputedValidationState,
+        asyncValidation.state,
+    ));
+
+    $effect.pre(() => {
+        const source = data;
+        const validator = validate;
+        if (source === previousValidationData && validator === previousValidator) {
+            return;
+        }
+        previousValidationData = source;
+        previousValidator = validator;
+        validationRunGeneration++;
+        validationSelectionGeneration++;
+        validationNavigation = '';
+        const empty = normalizeValidationIssues(undefined);
+        const wasPending = asyncValidation.status === 'pending';
+        asyncValidation = validator
+            ? {
+                announcement: wasPending ? 'Validation cancelled. Validating…' : 'Validating…',
+                state: empty,
+                status: 'pending',
+            }
+            : {
+                announcement: wasPending ? 'Validation cancelled.' : '',
+                state: empty,
+                status: wasPending ? 'cancelled' : 'idle',
+            };
+    });
+
+    $effect(() => {
+        const validator = validate;
+        const source = data;
+        const empty = normalizeValidationIssues(undefined);
+        if (!validator) {
+            asyncValidation = validationRestarted
+                ? { announcement: 'Validation cancelled.', state: empty, status: 'cancelled' }
+                : { announcement: '', state: empty, status: 'idle' };
+            validationRestarted = false;
+            return;
+        }
+        const generation = ++validationRunGeneration;
+        const controller = new AbortController();
+        let settled = false;
+        const restarted = validationRestarted;
+        validationRestarted = false;
+        asyncValidation = {
+            announcement: restarted ? 'Validation cancelled. Validating…' : 'Validating…',
+            state: empty,
+            status: 'pending',
+        };
+        void Promise.resolve()
+            .then(() => validator(source, controller.signal))
+            .then((result) => {
+                settled = true;
+                if (destroyed || controller.signal.aborted || generation !== validationRunGeneration) {
+                    return;
+                }
+                const state = normalizeValidationIssues(result);
+                const count = state.issues.length;
+                asyncValidation = {
+                    announcement: count === 0
+                        ? 'Validation complete with no issues.'
+                        : `Validation complete with ${count} ${count === 1 ? 'issue' : 'issues'}.`,
+                    state,
+                    status: 'success',
+                };
+            })
+            .catch((error: unknown) => {
+                settled = true;
+                if (destroyed || controller.signal.aborted || generation !== validationRunGeneration) {
+                    return;
+                }
+                asyncValidation = {
+                    announcement: `Validation failed: ${errorMessage(error)}`,
+                    state: empty,
+                    status: 'failure',
+                };
+            });
+        return () => {
+            controller.abort();
+            if (!settled) {
+                validationRestarted = true;
+            }
+        };
+    });
 
     $effect(() => {
         const panel = treePanel;
@@ -402,6 +506,15 @@
         return result.status === 'capped' || result.status === 'cancelled' ? result.reason : '';
     }
 
+    function errorMessage(error: unknown): string {
+        try {
+            return error instanceof Error && error.message ? error.message : String(error);
+        }
+        catch {
+            return 'Unknown validation error';
+        }
+    }
+
     function normalizedTableMatch(primary: unknown, fallback: unknown): RegExp | string | null {
         const query = normalizeSearchQuery(primary);
         if (query !== null) {
@@ -496,6 +609,9 @@
 
 <div class='sjd-inspector' data-active-view={activeView} data-active-path={JSON.stringify(activePath)}>
     <ValidationSummary state={validationState} onSelect={selectValidationIssue} />
+    {#if asyncValidation.announcement}
+        <div class='sjd-inspector-status' role='status' aria-label='Validation status'>{asyncValidation.announcement}</div>
+    {/if}
     {#if validationState.invalidCount > 0}
         <div class='sjd-inspector-status' role='status' aria-label='Validation diagnostics'>
             Ignored {validationState.invalidCount} invalid validation {validationState.invalidCount === 1 ? 'issue' : 'issues'}.

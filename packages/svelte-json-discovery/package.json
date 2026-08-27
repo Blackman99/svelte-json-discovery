@@ -58,13 +58,15 @@
     },
     "types": "./dist/index.d.ts",
     "files": [
+        "dist",
         "!dist/**/*.map",
-        "dist"
+        "!dist/**/*.test.*"
     ],
     "scripts": {
         "build": "svelte-package -i src -o dist",
         "dev": "svelte-package -i src -o dist -w",
         "check": "svelte-check --tsconfig ./tsconfig.json",
+        "pretest": "pnpm build",
         "test": "vitest run"
     },
     "peerDependencies": {
@@ -76,12 +78,14 @@
         "@testing-library/svelte": "^5.4.2",
         "@testing-library/user-event": "^14.6.6",
         "@tsconfig/svelte": "^5.0.8",
+        "@types/node": "^24.0.0",
         "ajv": "^8.20.0",
         "jsdom": "^30.0.1",
         "svelte": "^5.56.9",
         "svelte-check": "^4.7.3",
         "typescript": "~6.0.3",
         "valibot": "^1.4.2",
+        "vite": "^8.2.1",
         "vitest": "^4.1.11",
         "zod": "^4.4.3"
     },

@@ -341,6 +341,22 @@ navigation diagnostics; Map, Set and other non-standard path items use a
 bounded collision-free fallback with a `null` Pointer. `./validation/valibot`
 is isolated from the main package and generic `./validation` entries.
 
+### Stability and package boundaries
+
+`JsonPath`, `JsonViewerNode`, `JsonViewerSearchState`, `JsonViewerHandle`,
+`JsonInspectorHandle`, `ValidationIssue`, `JsonValidator`, `ChangeSet` and the
+Diff/Raw diagnostic vocabularies are stable host-integration protocols. The
+main entry remains the dependency-free read-only Viewer; Inspector, Diff and
+validator adapters are isolated optional subpaths with generated types and SSR
+support. Validator runtimes are always owned by the host application.
+
+Renderer, action and plugin contracts are experimental in this release. The
+built-in Tree, Raw, Table and Diff registry is fixed; custom Inspector view
+adapters are not yet a public extension point. Tree accepts extended JavaScript
+values, while Raw deliberately represents strict JSON only and reports the
+first unsupported value it encounters in each generation run as a
+path-addressable diagnostic rather than serializing a placeholder.
+
 ### Search and programmatic control
 
 ```svelte

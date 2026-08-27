@@ -4,6 +4,9 @@
     import type { JsonValidator } from 'svelte-json-discovery/validation';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
+    import { ajvErrorsToIssues } from 'svelte-json-discovery/validation/ajv';
+    import { valibotIssuesToIssues } from 'svelte-json-discovery/validation/valibot';
+    import { zodIssuesToIssues } from 'svelte-json-discovery/validation/zod';
     import { actionsDemo, bigArray, inspectorBaseline, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
@@ -33,11 +36,40 @@
         ];
     };
     const inspectorIdentity = (item: unknown) => item && typeof item === 'object' ? Reflect.get(item, 'id') as number : undefined;
+    const rawDiagnosticsData = {
+        service: 'billing-api',
+        safe: true,
+        unsupported: 9_007_199_254_740_993n,
+        missing: undefined,
+    };
+    const adapterData = { name: '', roles: [] as string[] };
+    const adapterIssues: readonly ValidationIssue[] = [
+        ...ajvErrorsToIssues([{
+            instancePath: '/name',
+            keyword: 'minLength',
+            message: 'must NOT have fewer than 1 characters',
+            params: { limit: 1 },
+            schemaPath: '#/properties/name/minLength',
+        }], { data: adapterData }),
+        ...zodIssuesToIssues([{
+            path: ['roles'],
+            code: 'too_small',
+            message: 'Choose at least one role',
+        }], { data: adapterData, severity: 'warning' }),
+        ...valibotIssuesToIssues([{
+            kind: 'schema',
+            type: 'non_empty',
+            message: 'Name cannot be empty',
+            path: [{ type: 'object', origin: 'value', input: adapterData, key: 'name', value: '' }],
+        }], { data: adapterData, severity: 'info' }),
+    ];
 
     const navItems: [string, string][] = [
         ['install', 'Install'],
         ['quick-start', 'Quick start'],
         ['inspector', 'Inspector shell'],
+        ['raw-diagnostics', 'Raw diagnostics'],
+        ['validator-adapters', 'Validator adapters'],
         ['live-updates', 'Live updates'],
         ['expand', 'Expand depth'],
         ['large-data', 'Large data'],
@@ -241,6 +273,35 @@
   itemIdentity={identify}
 />`;
 
+    const rawDiagnosticsCode = `<script lang="ts">
+  import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+  const data = {
+    service: 'billing-api',
+    safe: true,
+    unsupported: 9007199254740993n,
+    missing: undefined
+  };
+<\/script>
+
+<JsonInspector {data} expanded={1} />`;
+
+    const validatorAdaptersCode = `<script lang="ts">
+  import { JsonInspector } from 'svelte-json-discovery/inspector';
+  import { ajvErrorsToIssues } from 'svelte-json-discovery/validation/ajv';
+  import { zodIssuesToIssues } from 'svelte-json-discovery/validation/zod';
+  import { valibotIssuesToIssues } from 'svelte-json-discovery/validation/valibot';
+
+  const data = { name: '', roles: [] };
+  const issues = [
+    ...ajvErrorsToIssues(ajvErrors, { data }),
+    ...zodIssuesToIssues(zodIssues, { data, severity: 'warning' }),
+    ...valibotIssuesToIssues(valibotIssues, { data, severity: 'info' })
+  ];
+<\/script>
+
+<JsonInspector {data} {issues} expanded={1} />`;
+
     const expandCode = `<!-- open three levels deep -->
 <JsonViewer data={config} expanded={3} />
 
@@ -426,6 +487,26 @@
         </Example>
 
         <Example
+            id='raw-diagnostics'
+            title='Strict Raw diagnostics'
+            intro='Raw never substitutes JavaScript-only values with misleading JSON. BigInt, <code>undefined</code>, accessors, sparse arrays, cycles and special instances keep Tree usable while the first strict-JSON failure remains path-addressable.'
+            code={rawDiagnosticsCode}
+            note='Raw stays unavailable until the complete value is valid strict JSON. Activate a diagnostic to return to Tree and focus the exact offending node.'
+        >
+            <JsonInspector data={rawDiagnosticsData} expanded={1} theme={t} />
+        </Example>
+
+        <Example
+            id='validator-adapters'
+            title='Validator adapters'
+            intro='Ajv, Zod and Valibot adapters normalize their native output into the same stable <code>ValidationIssue</code> protocol, so summaries, inline markers and issue navigation stay validator-neutral.'
+            code={validatorAdaptersCode}
+            note='The live example maps existing issue arrays without loading validator runtimes. In an application, <code>createAjvValidator</code>, <code>createZodValidator</code> and <code>createValibotValidator</code> wrap host-owned validators behind the same cancellable <code>validate(data, signal)</code> contract.'
+        >
+            <JsonInspector data={adapterData} expanded={1} issues={adapterIssues} theme={t} />
+        </Example>
+
+        <Example
             id='live-updates'
             title='Live update highlights'
             intro='Enable <code>highlightUpdates</code> to compare a new data identity with the previous snapshot. Tree and Table share the transient markers, and Diff keeps the same selectable ChangeSet paths.'
@@ -561,7 +642,7 @@
         <!-- ——— props ——— -->
         <section class='example' id='api'>
             <h2>Props</h2>
-            <p class='intro-copy'>Original struct options remain compatible; inspector search and controlled-state options are additive.</p>
+            <p class='intro-copy'>Original struct options remain compatible; Inspector search and controlled-state options are additive. <code>JsonPath</code>, <code>JsonViewerNode</code>, <code>ValidationIssue</code>, <code>ChangeSet</code> and controller handles are stable protocols. Renderer, action and plugin contracts remain experimental; custom Inspector view adapters are not a public extension point.</p>
             <PropsTable />
         </section>
 

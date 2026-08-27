@@ -28,4 +28,11 @@ export default antfu(
             'yaml/indent': ['error', 2],
         },
     },
+    {
+        // npm applies files entries in order, so publish exclusions must follow dist
+        files: ['packages/svelte-json-discovery/package.json'],
+        rules: {
+            'jsonc/sort-array-values': 'off',
+        },
+    },
 );

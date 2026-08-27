@@ -5,18 +5,20 @@
 <script lang='ts'>
     import type { JsonViewerApi, StructOptions, ValueContext } from './types.js';
     import { getContext } from 'svelte';
+    import { createCollectionReader } from './collection.js';
     import { valueTokens } from './preview.js';
     import Preview from './Preview.svelte';
     import { childSchema, schemaInfo } from './schema.js';
-    import { isSortedKeys, isValueExpandable, shouldAutoExpand, valueEntries } from './struct-helpers.js';
+    import { isValueExpandable, shouldAutoExpand } from './struct-helpers.js';
     import { CONTEXT_KEY } from './types.js';
-    import { isArray, isSet, matchAll, numParts, stringifyIfNeeded } from './utils.js';
+    import { matchAll, numParts, objectToString, pathKey, pathToQuery, stringifyIfNeeded } from './utils.js';
     import ValueNode from './ValueNode.svelte';
 
-    const { value, options, context, autoExpandLimit = 0, schema, schemaRoot }: {
+    const { value, options, context, ancestors, autoExpandLimit = 0, schema, schemaRoot }: {
         value: unknown;
         options: StructOptions;
         context: ValueContext;
+        ancestors: readonly { value: object; path: readonly (string | number)[] }[];
         autoExpandLimit?: number;
         schema?: Record<string, unknown>;
         schemaRoot?: Record<string, unknown>;
@@ -24,32 +26,60 @@
 
     const api = getContext<JsonViewerApi>(CONTEXT_KEY);
 
-    const expandable = $derived(isValueExpandable(value, options));
+    const circularAncestor = $derived(
+        value !== null && typeof value === 'object'
+            ? ancestors.find(ancestor => ancestor.value === value)
+            : undefined,
+    );
+    const childAncestors = $derived(
+        value !== null && typeof value === 'object' && !circularAncestor
+            ? [...ancestors, { value, path: context.path }]
+            : ancestors,
+    );
+    const expandable = $derived(!circularAncestor && isValueExpandable(value, options));
     const limitNum = $derived(options.limit === false ? Infinity : options.limit);
     const isStringValue = $derived(typeof value === 'string');
-    const isArrayLike = $derived(isArray(value) || isSet(value));
+    // ValueNode instances are recreated when the root data identity changes.
+    // Keeping one reader preserves incremental Set/Map iterator caches.
+    // svelte-ignore state_referenced_locally
+    const collection = createCollectionReader(value);
+    const isArrayLike = $derived(collection.kind === 'array');
 
     // initial auto-expand (mirrors renderValue + shouldAutoExpand); deliberately
     // computed from the initial prop values only
     // svelte-ignore state_referenced_locally
-    const initiallyExpanded = autoExpandLimit > 0 && isValueExpandable(value, options) && shouldAutoExpand(value);
+    const initiallyExpanded = autoExpandLimit > 0
+        && isValueExpandable(value, options)
+        && shouldAutoExpand(value, options.limitCollapsed === false ? Infinity : options.limitCollapsed);
     // svelte-ignore state_referenced_locally
     const initialLimit = options.limit === false ? Infinity : options.limit;
 
-    let expanded = $state(initiallyExpanded);
     let visibleCount = $state(initiallyExpanded ? initialLimit : 0);
     let sortKeys = $state(false);
     let asText = $state(false);
 
-    const rawEntries = $derived(expanded && !isStringValue ? valueEntries(value) : []);
-    const sorted = $derived(isArrayLike ? true : isSortedKeys(rawEntries));
-    const entries = $derived(!isArrayLike && sortKeys && !sorted
-        ? [...rawEntries].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-        : rawEntries);
-    const size = $derived(entries.length);
-    const visibleEntries = $derived(entries.slice(0, visibleCount));
+    const expanded = $derived(api.isExpanded(context.path, initiallyExpanded));
+    const sorted = $derived(collection.sorted);
+    const size = $derived(collection.size);
+    const visibleEntries = $derived(expanded && !isStringValue ? collection.read(visibleCount, sortKeys) : []);
     const restCount = $derived(Math.max(size - visibleEntries.length, 0));
     const childExpandLimit = $derived(autoExpandLimit > 0 ? autoExpandLimit - 1 : 0);
+
+    $effect(() => {
+        if (expanded && visibleCount === 0) {
+            visibleCount = initialLimit;
+        }
+
+        const target = api.revealPath();
+        if (expanded && target && target.length > context.path.length
+            && context.path.every((part, index) => part === target[index])) {
+            const targetKey = target[context.path.length];
+            const targetIndex = collection.indexOf(targetKey, sortKeys);
+            if (targetIndex >= visibleCount) {
+                visibleCount = targetIndex + 1;
+            }
+        }
+    });
 
     const escapedLength = $derived(isStringValue ? stringifyIfNeeded(value as string).length : 0);
     const stringChunks = $derived.by(() => {
@@ -64,6 +94,7 @@
                     (text) => {
                         chunks.push({ isMatch: true, text });
                     },
+                    options.matchIgnoreCase,
                 );
             }
             else {
@@ -80,11 +111,11 @@
         }
 
         visibleCount = limitNum;
-        expanded = true;
+        api.setExpanded(context.path, true);
     }
 
     function collapse() {
-        expanded = false;
+        api.setExpanded(context.path, false);
     }
 
     function onCollapsedClick(event: Event) {
@@ -105,7 +136,17 @@
     }
 
     function childContext(key: string | number, index: number): ValueContext {
-        return { parent: context, host: value, key, index };
+        const jsonCompatible = context.jsonCompatible
+            && (Array.isArray(value) || objectToString(value) === '[object Object]');
+
+        return {
+            parent: context,
+            host: value,
+            key,
+            index,
+            path: [...context.path, key],
+            jsonCompatible,
+        };
     }
 
     function showActions(event: Event) {
@@ -142,19 +183,37 @@
 
     function keydownActivate(handler: (event: Event) => void) {
         return (event: KeyboardEvent) => {
+            const action = event.currentTarget as HTMLElement;
+
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 handler(event);
             }
+            else if (event.key === 'Escape') {
+                event.preventDefault();
+                action.closest<HTMLElement>('[role="treeitem"]')?.focus();
+            }
+            else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                event.preventDefault();
+                const treeItem = action.closest<HTMLElement>('[role="treeitem"]');
+                const actions = treeItem ? [...treeItem.querySelectorAll<HTMLElement>(':scope > .struct-action-button')] : [];
+                const index = actions.indexOf(action);
+                const offset = event.key === 'ArrowRight' ? 1 : -1;
+                actions[(index + offset + actions.length) % actions.length]?.focus();
+            }
         };
+    }
+
+    function selectLeaf() {
+        api.select(context.path);
     }
 </script>
 
-{#snippet actionButton(action: string, title: string | undefined, handler: (event: Event) => void)}<span class='struct-action-button' data-action={action} {title} role='button' tabindex='0' onclick={handler} onkeydown={keydownActivate(handler)}></span>{/snippet}
+{#snippet actionButton(action: string, title: string | undefined, handler: (event: Event) => void)}<span class='struct-action-button' data-action={action} title={title ?? action} aria-label={title ?? action} role='button' tabindex='-1' onclick={handler} onkeydown={keydownActivate(handler)}></span>{/snippet}
 
 {#snippet num(value: number)}{#each numParts(value) as part, i (i)}{#if i > 0}<span class='num-delim'></span>{/if}{part}{/each}{/snippet}
 
 {#snippet moreButtons()}{#if restCount > 0}<span class='more-buttons'>{#if restCount > limitNum}<button class='more-button' onclick={() => (visibleCount += limitNum)}>Show {limitNum} more...</button>{/if}<button class='more-button' onclick={() => (visibleCount = size)}>Show all the rest {restCount} items...</button></span>{/if}{/snippet}
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_static_element_interactions -->
-{#if !expanded}<span class='value' class:struct-expand-value={expandable} role={expandable ? 'button' : undefined} tabindex={expandable ? 0 : undefined} onclick={expandable ? onCollapsedClick : undefined} onkeydown={expandable ? keydownActivate(expand) : undefined}><Preview tokens={valueTokens(value, false, options)} /></span>{:else if isStringValue}<span class='value struct-expanded' class:string-value-as-text={asText}>"{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{@render actionButton('toggle-string-mode', 'Toggle string show mode', () => (asText = !asText))}<span class='string-length'>length: {@render num(escapedLength)} chars</span><span class='string-text-wrapper'><span class='string-text'>{#each stringChunks as chunk, i (i)}{#if chunk.isMatch}<span class='match'>{chunkText(chunk.text)}</span>{:else}{chunkText(chunk.text)}{/if}{/each}</span></span>"</span>{:else if isArrayLike}<span class='value struct-expanded'>[{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if size > 1}<span class='value-size'>{@render num(size)} elements</span>{/if}{#each visibleEntries as entry, i (i)}<div class='entry-line' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} schema={childSchemaFor(entry[0])} {schemaRoot} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}]</span>{:else}<span class='value struct-expanded' class:sort-keys={sortKeys}>&lbrace;{@render actionButton('collapse', undefined, collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if !sorted}{@render actionButton('toggle-sort-keys', 'Toggle key sorting', () => (sortKeys = !sortKeys))}{/if}{#if size > 1}<span class='value-size'>{@render num(size)} entries</span>{/if}{#each visibleEntries as entry, i (entry[0])}<div class='entry-line' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><span class='label'>{keyIndent}<span class='property' class:has-doc={fieldDoc(entry[0]) !== null} onmouseenter={e => showFieldDoc(e, entry[0])} onmouseleave={hideFieldDoc}>{fitKey(entry[0])}</span>:{nbsp}</span><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} schema={childSchemaFor(entry[0])} {schemaRoot} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}&rbrace;</span>{/if}
+<!-- svelte-ignore a11y_click_events_have_key_events (keyboard handling is delegated to the tree root) -->
+{#if circularAncestor}<span class='value circular-value' data-json-path={pathKey(context.path)} data-node-label={context.parent === null ? 'root' : String(context.key)} role='treeitem' aria-level={context.path.length + 1} aria-selected={api.isSelected(context.path)} tabindex={api.isFocused(context.path) ? 0 : -1} onfocus={() => api.setFocused(context.path)}>[Circular → {pathToQuery([...circularAncestor.path]) || '<root>'}]</span>{:else if !expanded}<span class='value' class:struct-expand-value={expandable} class:sjd-selected={api.isSelected(context.path)} class:sjd-search-match={api.isSearchMatch(context.path)} class:sjd-search-current={api.isCurrentSearchMatch(context.path)} data-json-path={pathKey(context.path)} data-node-label={context.parent === null ? 'root' : String(context.key)} role='treeitem' aria-level={context.path.length + 1} aria-expanded={expandable ? false : undefined} aria-selected={api.isSelected(context.path)} tabindex={api.isFocused(context.path) ? 0 : -1} onclick={expandable ? onCollapsedClick : selectLeaf} onfocus={() => api.setFocused(context.path)}><Preview tokens={valueTokens(value, false, options)} /></span>{:else if isStringValue}<span class='value struct-expanded' class:string-value-as-text={asText} class:sjd-selected={api.isSelected(context.path)} class:sjd-search-match={api.isSearchMatch(context.path)} class:sjd-search-current={api.isCurrentSearchMatch(context.path)} data-json-path={pathKey(context.path)} data-node-label={context.parent === null ? 'root' : String(context.key)} role='treeitem' aria-level={context.path.length + 1} aria-expanded='true' aria-selected={api.isSelected(context.path)} tabindex={api.isFocused(context.path) ? 0 : -1} onfocus={() => api.setFocused(context.path)}>"{@render actionButton('collapse', 'Collapse', collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{@render actionButton('toggle-string-mode', 'Toggle string show mode', () => (asText = !asText))}<span class='string-length'>length: {@render num(escapedLength)} chars</span><span class='string-text-wrapper'><span class='string-text'>{#each stringChunks as chunk, i (i)}{#if chunk.isMatch}<span class='match'>{chunkText(chunk.text)}</span>{:else}{chunkText(chunk.text)}{/if}{/each}</span></span>"</span>{:else if isArrayLike}<span class='value struct-expanded' class:sjd-selected={api.isSelected(context.path)} class:sjd-search-match={api.isSearchMatch(context.path)} class:sjd-search-current={api.isCurrentSearchMatch(context.path)} data-json-path={pathKey(context.path)} data-node-label={context.parent === null ? 'root' : String(context.key)} role='treeitem' aria-level={context.path.length + 1} aria-expanded='true' aria-selected={api.isSelected(context.path)} tabindex={api.isFocused(context.path) ? 0 : -1} onfocus={() => api.setFocused(context.path)}>[{@render actionButton('collapse', 'Collapse', collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if size > 1}<span class='value-size'>{@render num(size)} elements</span>{/if}{#each visibleEntries as entry, i (i)}<div class='entry-line' role='group' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} ancestors={childAncestors} schema={childSchemaFor(entry[0])} {schemaRoot} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}]</span>{:else}<span class='value struct-expanded' class:sort-keys={sortKeys} class:sjd-selected={api.isSelected(context.path)} class:sjd-search-match={api.isSearchMatch(context.path)} class:sjd-search-current={api.isCurrentSearchMatch(context.path)} data-json-path={pathKey(context.path)} data-node-label={context.parent === null ? 'root' : String(context.key)} role='treeitem' aria-level={context.path.length + 1} aria-expanded='true' aria-selected={api.isSelected(context.path)} tabindex={api.isFocused(context.path) ? 0 : -1} onfocus={() => api.setFocused(context.path)}>&lbrace;{@render actionButton('collapse', 'Collapse', collapse)}{@render actionButton('value-actions', 'Value actions', showActions)}{#if !sorted}{@render actionButton('toggle-sort-keys', 'Toggle key sorting', () => (sortKeys = !sortKeys))}{/if}{#if size > 1}<span class='value-size'>{@render num(size)} entries</span>{/if}{#each visibleEntries as entry, i (entry[0])}<div class='entry-line' role='group' data-index={i > 0 && i % 10 === 9 ? i + 1 : undefined}><span class='label'>{keyIndent}<span class='property' role='term' class:has-doc={fieldDoc(entry[0]) !== null} class:match={api.isSearchMatch([...context.path, entry[0]])} onmouseenter={e => showFieldDoc(e, entry[0])} onmouseleave={hideFieldDoc}>{fitKey(entry[0])}</span>:{nbsp}</span><ValueNode value={entry[1]} {options} autoExpandLimit={childExpandLimit} context={childContext(entry[0], i)} ancestors={childAncestors} schema={childSchemaFor(entry[0])} {schemaRoot} />{#if i !== size - 1},{/if}</div>{/each}{@render moreButtons()}&rbrace;</span>{/if}

@@ -3,6 +3,7 @@
 // rendered by Preview.svelte — no innerHTML involved.
 
 import type { StructOptions } from './types.js';
+import { isViewerError, safeErrorMessage } from './collection.js';
 import { hasOwn, isArray, isError, matchAll, numParts, objectToString, stringifyIfNeeded } from './utils.js';
 
 export interface Token {
@@ -62,6 +63,7 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
                         return stop;
                     }
                 },
+                options.matchIgnoreCase,
             );
 
             if (matches.length > 0) {
@@ -128,6 +130,7 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
             (text) => {
                 content.push({ cls: 'match', text: stringifyIfNeeded(text) });
             },
+            options.matchIgnoreCase,
         );
     }
     else {
@@ -158,6 +161,19 @@ function stringTokens(value: string, compact: boolean, options: StructOptions): 
 }
 
 export function valueTokens(value: unknown, compact: boolean, options: StructOptions): Token[] {
+    try {
+        return unsafeValueTokens(value, compact, options);
+    }
+    catch (error) {
+        return [{ cls: 'error-value', text: `[Thrown: ${safeErrorMessage(error)}]` }];
+    }
+}
+
+function unsafeValueTokens(value: unknown, compact: boolean, options: StructOptions): Token[] {
+    if (isViewerError(value)) {
+        return [{ cls: 'error-value', text: `[Thrown: ${value.message}]` }];
+    }
+
     switch (typeof value) {
         case 'boolean':
         case 'undefined':
@@ -247,6 +263,11 @@ export function valueTokens(value: unknown, compact: boolean, options: StructOpt
                     out.push({ text: ']' });
 
                     return out;
+                }
+
+                case '[object Map]': {
+                    const valueSize = (value as Map<unknown, unknown>).size;
+                    return [{ text: `Map(${valueSize}) {${valueSize > 0 ? '…' : ''}}` }];
                 }
 
                 case '[object Date]':

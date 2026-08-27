@@ -26,6 +26,8 @@
             if (rect.bottom > window.innerHeight - 8) {
                 el.style.top = `${Math.max(8, y - rect.height - 24)}px`;
             }
+
+            (el.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? el).focus();
         }
     });
 
@@ -37,8 +39,33 @@
 
     function onKeydown(event: KeyboardEvent) {
         if (event.key === 'Escape') {
+            event.preventDefault();
             onclose();
         }
+    }
+
+    function onMenuKeydown(event: KeyboardEvent) {
+        if (!el || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            return;
+        }
+
+        event.preventDefault();
+        const items = [...el.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')];
+        const current = items.indexOf(document.activeElement as HTMLElement);
+        let target: HTMLElement | undefined;
+        if (event.key === 'Home') {
+            target = items[0];
+        }
+        else if (event.key === 'End') {
+            target = items.at(-1);
+        }
+        else if (event.key === 'ArrowDown') {
+            target = items[(current + 1) % items.length];
+        }
+        else {
+            target = items[(current - 1 + items.length) % items.length];
+        }
+        target?.focus();
     }
 
     async function run(item: PopupAction) {
@@ -68,6 +95,7 @@
     style:color-scheme={scheme}
     role='menu'
     tabindex='-1'
+    onkeydown={onMenuKeydown}
 >
     {#each actions as item, i (i)}
         <div

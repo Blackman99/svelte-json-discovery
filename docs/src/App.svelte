@@ -16,6 +16,7 @@
         ['large-data', 'Large data'],
         ['strings', 'Strings'],
         ['highlight', 'Match highlighting'],
+        ['search-control', 'Search & control'],
         ['special-types', 'Beyond JSON'],
         ['value-actions', 'Value actions'],
         ['schema-docs', 'Field docs'],
@@ -144,6 +145,17 @@
 
 <input bind:value={query} />
 <JsonViewer data={registry} match={query} expanded={2} />`;
+
+    const searchControlCode = `<script lang="ts">
+  import { JsonViewer, type JsonViewerHandle } from 'svelte-json-discovery';
+
+  let viewer: JsonViewerHandle;
+<\/script>
+
+<JsonViewer bind:this={viewer} data={registry} showSearch />
+<button onclick={() => viewer.scrollTo(['keywords', 0])}>
+  Jump to the first keyword
+</button>`;
 
     const specialCode = `const data = {
   date: new Date(),
@@ -287,6 +299,17 @@
             <JsonViewer data={searchable} match={query.trim() === '' ? null : query} expanded={2} theme={t} />
         </Example>
 
+        <!-- ——— search and controller ——— -->
+        <Example
+            id='search-control'
+            title='Search & control'
+            intro='Set <code>showSearch</code> for cancellable, case-insensitive key/value search with wraparound result navigation. Every result expands its ancestors and loads the required collection window. For application-driven flows, bind the component and call <code>expand</code>, <code>collapse</code>, <code>focus</code>, <code>scrollTo</code>, <code>select</code>, <code>nextMatch</code> or <code>previousMatch</code>.'
+            code={searchControlCode}
+            note='Use <code>search</code>, <code>expandedPaths</code> and <code>selectedPath</code> for controlled state. The exported <code>JsonPath</code>, <code>JsonViewerSearchState</code> and <code>JsonViewerHandle</code> types keep host integrations typed.'
+        >
+            <JsonViewer data={searchable} showSearch expanded={0} theme={t} />
+        </Example>
+
         <!-- ——— special types ——— -->
         <Example
             id='special-types'
@@ -302,7 +325,7 @@
         <Example
             id='value-actions'
             title='Value actions'
-            intro='Every expanded value grows a <code>ƒ</code> button: copy the path to that value (<code>package.exports.types</code>-style, quoting keys when needed), or copy the subtree as formatted / compact JSON — with byte sizes and circular-structure detection. Strings get quoted, unquoted and raw copy variants.'
+            intro='Every expanded value grows a <code>ƒ</code> button: copy its JavaScript path, an RFC 6901 JSON Pointer when the location is standard JSON, or the subtree as formatted / compact JSON. Strings get quoted, unquoted and raw copy variants.'
             note='Try it: expand a node, press <code>ƒ</code>, then paste somewhere. Objects with unsorted keys also get a <code>keys ↓</code> toggle.'
         >
             <JsonViewer data={actionsDemo} expanded={2} theme={t} />
@@ -344,7 +367,7 @@
         <!-- ——— props ——— -->
         <section class='example' id='api'>
             <h2>Props</h2>
-            <p class='intro-copy'>All options mirror the original struct view config, defaults included.</p>
+            <p class='intro-copy'>Original struct options remain compatible; inspector search and controlled-state options are additive.</p>
             <PropsTable />
         </section>
 

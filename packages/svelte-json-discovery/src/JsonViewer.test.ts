@@ -1,0 +1,629 @@
+import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import JsonViewer from './JsonViewer.svelte';
+
+afterEach(cleanup);
+
+describe('json viewer', () => {
+    it('shows an accessible search input only when requested', () => {
+        const { unmount } = render(JsonViewer, { data: { hello: 'world' } });
+
+        expect(screen.queryByRole('searchbox')).toBeNull();
+        unmount();
+
+        render(JsonViewer, { data: { hello: 'world' }, showSearch: true });
+
+        expect(screen.getByRole('searchbox', { name: 'Search JSON' })).toBeTruthy();
+    });
+
+    it('expands and selects nodes through the public component handle', async () => {
+        const selections: (readonly (string | number)[] | null)[] = [];
+        const { component } = render(JsonViewer, {
+            data: { nested: { leaf: 'value' } },
+            expanded: 0,
+            onSelectedPathChange: path => selections.push(path),
+        });
+
+        expect(screen.queryByText('leaf')).toBeNull();
+        expect(await component.expand(['nested'])).toBe(true);
+        expect(screen.getByText('leaf')).toBeTruthy();
+        expect(await component.select(['nested', 'leaf'])).toBe(true);
+        expect(selections).toEqual([['nested', 'leaf']]);
+    });
+
+    it('searches collapsed keys and values and navigates between results', async () => {
+        const user = userEvent.setup();
+
+        render(JsonViewer, {
+            data: { hidden: { needleKey: 'first', other: 'needle value' } },
+            expanded: 0,
+            showSearch: true,
+        });
+
+        await user.type(screen.getByRole('searchbox', { name: 'Search JSON' }), 'needle');
+
+        expect(await screen.findByText('1 / 2')).toBeTruthy();
+        expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: 'Search JSON' }));
+        expect(screen.getByText('needleKey')).toBeTruthy();
+
+        await user.click(screen.getByRole('button', { name: 'Next match' }));
+
+        expect(await screen.findByText('2 / 2')).toBeTruthy();
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"needle value"')).toBeTruthy();
+    });
+
+    it('does not read object values outside the visible collection window', () => {
+        let hiddenReads = 0;
+        const data: Record<string, unknown> = { visible: 'yes' };
+
+        Object.defineProperty(data, 'hidden', {
+            enumerable: true,
+            get() {
+                hiddenReads++;
+                return 'later';
+            },
+        });
+
+        render(JsonViewer, { data, expanded: 1, limit: 1 });
+
+        expect(screen.getByText('visible')).toBeTruthy();
+        expect(hiddenReads).toBe(0);
+    });
+
+    it('localizes circular references while rendering shared references normally', () => {
+        const shared = { answer: 42 };
+        const data: Record<string, unknown> = { first: shared, second: shared };
+        data.self = data;
+
+        render(JsonViewer, { data, expanded: 4 });
+
+        expect(screen.getByText('[Circular → <root>]')).toBeTruthy();
+        expect(screen.getAllByText('answer')).toHaveLength(2);
+    });
+
+    it('implements tree keyboard navigation with a single roving focus target', async () => {
+        const user = userEvent.setup();
+        const selections: (readonly (string | number)[] | null)[] = [];
+
+        render(JsonViewer, {
+            data: { branch: { leaf: 1 }, last: 2 },
+            expanded: 0,
+            onSelectedPathChange: path => selections.push(path),
+        });
+
+        const tree = screen.getByRole('tree', { name: 'JSON data' });
+        const root = within(tree).getByRole('treeitem');
+        root.focus();
+
+        await user.keyboard('{ArrowRight}');
+        await waitFor(() => expect(within(tree).getAllByRole('treeitem')[0].getAttribute('aria-expanded')).toBe('true'));
+        await user.keyboard('{ArrowRight}');
+
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('branch');
+        expect(within(tree).getAllByRole('treeitem').filter(item => item.tabIndex === 0)).toHaveLength(1);
+
+        await user.keyboard('{Enter}');
+        expect(selections).toEqual([['branch']]);
+    });
+
+    it('keeps one composite tab stop and exposes node actions with F2', async () => {
+        const user = userEvent.setup();
+        render(JsonViewer, { data: { value: 1 }, expanded: 1 });
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        root?.focus();
+        expect(document.querySelectorAll('[tabindex="0"]')).toHaveLength(1);
+
+        await user.keyboard('{F2}');
+        expect(document.activeElement?.getAttribute('aria-label')).toBe('Collapse');
+        await user.keyboard('{ArrowRight}');
+        expect(document.activeElement?.getAttribute('aria-label')).toBe('Value actions');
+        await user.keyboard('{Escape}');
+        expect(document.activeElement).toBe(root);
+    });
+
+    it('supports the complete tree direction, toggle and typeahead key set', async () => {
+        const user = userEvent.setup();
+        render(JsonViewer, {
+            data: { alpha: { child: 1 }, beta: 2, charlie: 3 },
+            expanded: 1,
+        });
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        root?.focus();
+        await user.keyboard('{ArrowDown}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('alpha');
+
+        await user.keyboard(' ');
+        expect(document.activeElement?.getAttribute('aria-expanded')).toBe('true');
+        await user.keyboard('{ArrowRight}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('child');
+        await user.keyboard('{ArrowLeft}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('alpha');
+        await user.keyboard('{ArrowLeft}');
+        expect(document.activeElement?.getAttribute('aria-expanded')).toBe('false');
+
+        await user.keyboard('{End}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('charlie');
+        await user.keyboard('{Home}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('root');
+        await user.keyboard('b');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('beta');
+        await user.keyboard('{ArrowUp}');
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('alpha');
+    });
+
+    it('emits controlled expansion changes and applies paths supplied by the host', async () => {
+        const data = { branch: { nested: { leaf: true } } };
+        const changes: (readonly (readonly (string | number)[])[])[] = [];
+        const rendered = render(JsonViewer, {
+            data,
+            expanded: 0,
+            expandedPaths: [[]],
+            onExpandedPathsChange: paths => changes.push(paths),
+        });
+
+        expect(document.querySelector('[data-node-label="branch"]')?.getAttribute('aria-expanded')).toBe('false');
+        expect(await rendered.component.expand(['branch'])).toBe(true);
+        expect(changes.at(-1)).toEqual([[], ['branch']]);
+        expect(document.querySelector('[data-node-label="branch"]')?.getAttribute('aria-expanded')).toBe('false');
+
+        await rendered.rerender({
+            data,
+            expanded: 0,
+            expandedPaths: [[], ['branch']],
+            onExpandedPathsChange: paths => changes.push(paths),
+        });
+
+        expect(document.querySelector('[data-node-label="branch"]')?.getAttribute('aria-expanded')).toBe('true');
+        expect(await rendered.component.expand(['branch', 'nested'])).toBe(true);
+        expect(changes.at(-1)).toEqual([[], ['branch'], ['branch', 'nested']]);
+        expect(await rendered.component.expand(['missing'])).toBe(false);
+    });
+
+    it('ignores controlled expansion and expand calls for primitive paths', async () => {
+        const rendered = render(JsonViewer, {
+            data: { primitive: 42 },
+            expandedPaths: [[], ['primitive']],
+        });
+
+        const primitive = document.querySelector('[data-node-label="primitive"]');
+        expect(primitive?.getAttribute('aria-expanded')).toBeNull();
+        expect(primitive?.textContent).toContain('42');
+        expect(await rendered.component.expand(['primitive'])).toBe(false);
+        expect(await rendered.component.collapse(['primitive'])).toBe(false);
+    });
+
+    it('supports regular-expression search and reports capped result sets', async () => {
+        render(JsonViewer, {
+            data: { first: 'needle', second: 'NEEDLE', third: 'other' },
+            search: /needle/i,
+            showSearch: true,
+            maxSearchResults: 1,
+        });
+
+        expect(await screen.findByText('1 / 1+')).toBeTruthy();
+    });
+
+    it('honors sticky regular-expression semantics', async () => {
+        render(JsonViewer, {
+            data: { notAtStart: 'ax', atStart: 'x' },
+            search: /x/y,
+            showSearch: true,
+        });
+
+        expect(await screen.findByText('1 / 1')).toBeTruthy();
+        expect(screen.getByText('atStart')).toBeTruthy();
+        expect(document.querySelector('[data-node-label="atStart"]')?.classList.contains('sjd-search-match')).toBe(true);
+        expect(document.querySelector('[data-node-label="notAtStart"]')?.classList.contains('sjd-search-match')).toBe(false);
+    });
+
+    it('highlights ordinary string search results without regard to case', async () => {
+        render(JsonViewer, {
+            data: { value: 'LOUD NEEDLE' },
+            search: 'needle',
+        });
+
+        await waitFor(() => expect(document.querySelector('.match')?.textContent).toBe('NEEDLE'));
+    });
+
+    it('cancels stale asynchronous searches when the query changes', async () => {
+        const states: { query: RegExp | string | null; totalCount: number }[] = [];
+        const data = {
+            values: Array.from({ length: 750 }, (_, index) => `old-${index}`),
+            target: 'fresh result',
+        };
+        const rendered = render(JsonViewer, {
+            data,
+            search: 'old',
+            onSearchStateChange: state => states.push({ query: state.query, totalCount: state.totalCount }),
+        });
+
+        await rendered.rerender({
+            data,
+            search: 'fresh',
+            onSearchStateChange: state => states.push({ query: state.query, totalCount: state.totalCount }),
+        });
+
+        await waitFor(() => expect(states.at(-1)).toEqual({ query: 'fresh', totalCount: 1 }));
+        expect(states.some(state => state.query === 'old' && state.totalCount > 0)).toBe(false);
+    });
+
+    it('resets internal state for new data while preserving and recalculating local search', async () => {
+        const user = userEvent.setup();
+        const selections: (readonly (string | number)[] | null)[] = [];
+        const rendered = render(JsonViewer, {
+            data: { branch: { value: 'needle old' } },
+            expanded: 0,
+            showSearch: true,
+            onSelectedPathChange: path => selections.push(path),
+        });
+
+        await rendered.component.expand(['branch']);
+        await rendered.component.select(['branch']);
+        await user.type(screen.getByRole('searchbox', { name: 'Search JSON' }), 'needle');
+        expect(await screen.findByText('1 / 1')).toBeTruthy();
+
+        await rendered.rerender({
+            data: { replacement: 'needle new' },
+            expanded: 0,
+            showSearch: true,
+            onSelectedPathChange: path => selections.push(path),
+        });
+
+        await waitFor(() => expect(document.querySelector('[data-json-path="[]"]')?.getAttribute('aria-expanded')).toBe('false'));
+        expect((screen.getByRole('searchbox', { name: 'Search JSON' }) as HTMLInputElement).value).toBe('needle');
+        expect(await screen.findByText('1 / 1')).toBeTruthy();
+        expect(selections.at(-1)).toBeNull();
+        expect(await rendered.component.focus(['branch'])).toBe(false);
+    });
+
+    it('supports all navigation methods on the public component handle', async () => {
+        const scrollIntoView = vi.fn();
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+            configurable: true,
+            value: scrollIntoView,
+        });
+        const rendered = render(JsonViewer, {
+            data: { first: 'match', second: 'match' },
+            expanded: 0,
+            search: 'match',
+        });
+
+        await waitFor(() => expect(document.querySelectorAll('.sjd-search-match')).toHaveLength(2));
+        expect(await rendered.component.previousMatch()).toEqual(['second']);
+        expect(await rendered.component.nextMatch()).toEqual(['first']);
+        expect(await rendered.component.focus(['second'])).toBe(true);
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('second');
+        expect(await rendered.component.scrollTo(['first'])).toBe(true);
+        expect(scrollIntoView).toHaveBeenCalled();
+        expect(await rendered.component.collapse([])).toBe(true);
+        expect(document.querySelector('[data-json-path="[]"]')?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps controlled selection unchanged until the host supplies the new path', async () => {
+        const data = { first: 1, second: 2 };
+        const changes: (readonly (string | number)[] | null)[] = [];
+        const rendered = render(JsonViewer, {
+            data,
+            expanded: 1,
+            selectedPath: ['first'],
+            onSelectedPathChange: path => changes.push(path),
+        });
+
+        expect(document.querySelector('[data-node-label="first"]')?.getAttribute('aria-selected')).toBe('true');
+        expect(await rendered.component.select(['second'])).toBe(true);
+        expect(changes.at(-1)).toEqual(['second']);
+        expect(document.querySelector('[data-node-label="first"]')?.getAttribute('aria-selected')).toBe('true');
+
+        await rendered.rerender({
+            data,
+            expanded: 1,
+            selectedPath: ['second'],
+            onSelectedPathChange: path => changes.push(path),
+        });
+        expect(document.querySelector('[data-node-label="second"]')?.getAttribute('aria-selected')).toBe('true');
+
+        await rendered.rerender({
+            data,
+            expanded: 1,
+            selectedPath: ['missing'],
+            onSelectedPathChange: path => changes.push(path),
+        });
+        expect(document.querySelector('[aria-selected="true"]')).toBeNull();
+    });
+
+    it('loads the hidden collection window containing a search result', async () => {
+        render(JsonViewer, {
+            data: ['zero', 'one', 'two', 'three', 'four', 'needle'],
+            expanded: 0,
+            limit: 2,
+            search: 'needle',
+        });
+
+        await waitFor(() => expect(document.querySelector('[data-node-label="5"]')).not.toBeNull());
+        expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(7);
+    });
+
+    it('copies escaped JSON Pointers and restores focus after the action menu closes', async () => {
+        const user = userEvent.setup();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText },
+        });
+
+        render(JsonViewer, {
+            data: { 'a/b~c': { nested: 1 } },
+            expanded: 2,
+        });
+
+        const node = document.querySelector<HTMLElement>('[data-node-label="a/b~c"]');
+        expect(node).not.toBeNull();
+        const actionButton = within(node as HTMLElement).getByRole('button', { name: 'Value actions' });
+        await user.click(actionButton);
+
+        const pointerItem = screen.getByRole('menuitem', { name: /Copy JSON Pointer:/ });
+        expect(screen.getByRole('menu').contains(document.activeElement)).toBe(true);
+        await user.click(pointerItem);
+
+        expect(writeText).toHaveBeenCalledWith('/a~1b~0c');
+        expect(document.activeElement).toBe(actionButton);
+    });
+
+    it('copies the RFC 6901 empty pointer for the document root', async () => {
+        const user = userEvent.setup();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText },
+        });
+        render(JsonViewer, { data: { value: 1 }, expanded: 1 });
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        await user.click(within(root as HTMLElement).getByRole('button', { name: 'Value actions' }));
+        await user.click(screen.getByRole('menuitem', { name: 'Copy JSON Pointer:' }));
+
+        expect(writeText).toHaveBeenCalledWith('');
+    });
+
+    it('renders Map entries and resolves their stable iteration paths', async () => {
+        const rendered = render(JsonViewer, {
+            data: new Map([['key', 'value']]),
+            expanded: 0,
+        });
+
+        expect(screen.getByText('Map(1) {…}')).toBeTruthy();
+        expect(await rendered.component.expand([])).toBe(true);
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"key"')).toBeTruthy();
+        expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"value"')).toBeTruthy();
+        expect(await rendered.component.select([0, 1])).toBe(true);
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        const rootActions = root?.querySelector<HTMLElement>(':scope > [aria-label="Value actions"]');
+        await userEvent.setup().click(rootActions as HTMLElement);
+        expect(screen.queryByRole('menuitem', { name: /Copy JSON Pointer/ })).toBeNull();
+    });
+
+    it('renders getter and Proxy failures as local error nodes', () => {
+        const throwingGetter: Record<string, unknown> = {};
+        Object.defineProperty(throwingGetter, 'broken', {
+            enumerable: true,
+            get() {
+                throw new Error('getter blocked');
+            },
+        });
+        const hostileProxy = new Proxy({}, {
+            ownKeys() {
+                throw new Error('proxy blocked');
+            },
+        });
+        const hostileArray = new Proxy([], {
+            get(target, property, receiver) {
+                if (property === 'length') {
+                    throw new Error('array length blocked');
+                }
+                return Reflect.get(target, property, receiver);
+            },
+        });
+
+        render(JsonViewer, { data: { throwingGetter, hostileProxy, hostileArray }, expanded: 3 });
+
+        expect(screen.getByText('[Thrown: getter blocked]')).toBeTruthy();
+        expect(screen.getByText('[Thrown: proxy blocked]')).toBeTruthy();
+        expect(screen.getByText('[Thrown: array length blocked]')).toBeTruthy();
+    });
+
+    it('can match a getter key even when reading its value throws', async () => {
+        const data: Record<string, unknown> = {};
+        Object.defineProperty(data, 'needleGetter', {
+            enumerable: true,
+            get() {
+                throw new Error('getter blocked');
+            },
+        });
+
+        render(JsonViewer, { data, search: 'needle', showSearch: true });
+
+        expect(await screen.findByText('1 / 1')).toBeTruthy();
+        expect(screen.getByText('needleGetter')).toBeTruthy();
+        expect(screen.getByText('[Thrown: getter blocked]')).toBeTruthy();
+    });
+
+    it('can match an array index even when reading its value throws', async () => {
+        const data = new Proxy(['zero', 'one'], {
+            get(target, property, receiver) {
+                if (property === '1') {
+                    throw new Error('index blocked');
+                }
+                return Reflect.get(target, property, receiver);
+            },
+        });
+
+        render(JsonViewer, { data, search: /^1$/, showSearch: true });
+
+        expect(await screen.findByText('1 / 1')).toBeTruthy();
+        expect(screen.getByText('[Thrown: index blocked]')).toBeTruthy();
+        expect(document.querySelector('[data-node-label="1"]')?.classList.contains('sjd-search-match')).toBe(true);
+    });
+
+    it('localizes serialization failures in the value actions menu', async () => {
+        const user = userEvent.setup();
+        render(JsonViewer, { data: { unsafe: 1n }, expanded: 1 });
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        expect(root).not.toBeNull();
+        await user.click(within(root as HTMLElement).getByRole('button', { name: 'Value actions' }));
+
+        expect(screen.getAllByText(/Can't export JSON:/)).toHaveLength(2);
+        expect(screen.getAllByRole('menuitem', { name: /Copy as JSON/ }).every(item => item.getAttribute('aria-disabled') === 'true')).toBe(true);
+    });
+
+    it('handles non-Error and hostile serialization exceptions', async () => {
+        const user = userEvent.setup();
+        const data = {
+            toJSON() {
+                // eslint-disable-next-line no-throw-literal -- verifies arbitrary user-thrown values stay local
+                throw {
+                    toString() {
+                        throw new Error('coercion blocked');
+                    },
+                };
+            },
+        };
+        render(JsonViewer, { data, expanded: 1 });
+
+        const root = document.querySelector<HTMLElement>('[data-json-path="[]"]');
+        await user.click(within(root as HTMLElement).getByRole('button', { name: 'Value actions' }));
+
+        expect(screen.getAllByText('Can\'t export JSON: Unknown error')).toHaveLength(2);
+        expect(screen.getAllByRole('menuitem', { name: /Copy as JSON/ }).every(item => item.getAttribute('aria-disabled') === 'true')).toBe(true);
+    });
+
+    it('does not confuse user JSON with the internal error marker', () => {
+        render(JsonViewer, {
+            data: { __viewerError: true, message: 'ordinary data' },
+            expanded: 2,
+        });
+
+        expect(screen.getByText('__viewerError')).toBeTruthy();
+        expect(screen.getByText('message')).toBeTruthy();
+        expect(screen.queryByText('[Thrown: ordinary data]')).toBeNull();
+    });
+
+    it('touches only indices in the visible window of a million-item array', async () => {
+        const user = userEvent.setup();
+        const accessed = new Set<number>();
+        const source = Array.from({ length: 1_000_000 }).fill(0);
+        const data = new Proxy(source, {
+            get(target, property, receiver) {
+                if (typeof property === 'string' && /^\d+$/.test(property)) {
+                    accessed.add(Number(property));
+                }
+                return Reflect.get(target, property, receiver);
+            },
+        });
+        const rendered = render(JsonViewer, {
+            data,
+            expanded: 0,
+            limit: 3,
+            limitCollapsed: 2,
+        });
+
+        expect(await rendered.component.expand([])).toBe(true);
+        expect([...accessed]).toEqual([0, 1, 2]);
+        expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(4);
+
+        await user.click(screen.getByRole('button', { name: 'Show 3 more...' }));
+        expect([...accessed]).toEqual([0, 1, 2, 3, 4, 5]);
+        expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(7);
+    });
+
+    it('does not scan a small numeric array to decide auto-expansion', () => {
+        const accessed = new Set<number>();
+        const source = Array.from({ length: 1000 }, (_, index) => index);
+        const data = new Proxy(source, {
+            get(target, property, receiver) {
+                if (typeof property === 'string' && /^\d+$/.test(property)) {
+                    accessed.add(Number(property));
+                }
+                return Reflect.get(target, property, receiver);
+            },
+        });
+
+        render(JsonViewer, { data, expanded: 1, limitCollapsed: 4 });
+
+        expect([...accessed]).toEqual([0, 1, 2, 3]);
+        expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
+    });
+
+    it('keeps a large typed array DOM bounded to the visible window', async () => {
+        const rendered = render(JsonViewer, {
+            data: new Uint32Array(100_000),
+            expanded: 0,
+            limit: 3,
+        });
+
+        expect(await rendered.component.expand([])).toBe(true);
+        expect(document.querySelectorAll('[role="treeitem"]')).toHaveLength(4);
+        expect(screen.getByRole('button', { name: 'Show 3 more...' })).toBeTruthy();
+    });
+
+    it('consumes Set and Map iterators only as their visible windows grow', async () => {
+        const user = userEvent.setup();
+
+        class CountingSet<T> extends Set<T> {
+            reads = 0;
+
+            override values(): SetIterator<T> {
+                const iterator = super.values();
+                return {
+                    next: () => {
+                        const result = iterator.next();
+                        if (!result.done) {
+                            this.reads++;
+                        }
+                        return result;
+                    },
+                    [Symbol.iterator]() {
+                        return this;
+                    },
+                } as SetIterator<T>;
+            }
+        }
+
+        class CountingMap<K, V> extends Map<K, V> {
+            reads = 0;
+
+            override entries(): MapIterator<[K, V]> {
+                const iterator = super.entries();
+                return {
+                    next: () => {
+                        const result = iterator.next();
+                        if (!result.done) {
+                            this.reads++;
+                        }
+                        return result;
+                    },
+                    [Symbol.iterator]() {
+                        return this;
+                    },
+                } as MapIterator<[K, V]>;
+            }
+        }
+
+        const set = new CountingSet([1, 2, 3, 4, 5]);
+        const setView = render(JsonViewer, { data: set, expanded: 1, limit: 2 });
+        expect(set.reads).toBe(2);
+        await user.click(screen.getByRole('button', { name: 'Show 2 more...' }));
+        expect(set.reads).toBe(4);
+        setView.unmount();
+
+        const map = new CountingMap([['a', 1], ['b', 2], ['c', 3], ['d', 4], ['e', 5]]);
+        render(JsonViewer, { data: map, expanded: 1, limit: 2 });
+        expect(map.reads).toBe(2);
+        await user.click(screen.getByRole('button', { name: 'Show 2 more...' }));
+        expect(map.reads).toBe(4);
+    });
+});

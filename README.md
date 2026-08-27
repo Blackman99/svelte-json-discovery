@@ -40,13 +40,21 @@ pnpm add svelte-json-discovery
   bigint, typed arrays, functions
 - 🌳 **Expand / collapse** with configurable auto-expand depth and the original
   smart heuristics (number arrays and long strings stay collapsed)
-- 📚 **Pagination** for large collections — "Show 50 more…" / "Show all the rest…"
+- 📚 **Windowed large collections** — visible array indices and object values
+  are read on demand; `Set`/`Map` iterators advance incrementally
 - ✂️ **Long string handling** — truncation, length badges, escaped view with an
   "as text" toggle, URL auto-linking
-- 🔍 **Match highlighting** — substring or RegExp, including the
-  window-around-match logic for truncated strings
-- 📋 **Value actions** — copy path, copy as formatted/compact JSON (with byte
+- 🔍 **Global search** — cancellable key/value traversal, capped result counts,
+  wraparound navigation and automatic reveal; legacy match highlighting remains
+- 🎛️ **Controlled paths and controller methods** — expand, collapse, focus,
+  scroll, select and navigate matches through application state or `bind:this`
+- 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
+  formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants
+- 🛡️ **Safe inspection** — circular references and hostile getters, Proxies or
+  iterators stay local to the affected node
+- ⌨️ **Accessible ARIA tree** — roving focus, full direction-key navigation,
+  Home/End, typeahead, Enter selection and Space expansion
 - 🧾 **Field docs via JSON Schema** — hover a documented key to see its
   title, description, type, enum, default and deprecation status
 - 🌗 **Light / dark / auto themes**, honoring `--discovery-fmt-*` CSS variables
@@ -67,6 +75,7 @@ See the full prop reference in the
 ```bash
 pnpm install
 pnpm dev          # library in watch mode + docs dev server
+pnpm test         # Vitest + Testing Library public-behavior tests
 pnpm check        # svelte-check across the workspace
 pnpm lint         # eslint (@antfu/eslint-config); `pnpm lint:fix` to autofix
 pnpm build        # build library + docs

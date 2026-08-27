@@ -187,6 +187,24 @@ export function pathToQuery(path: (string | number)[]): string {
     return query;
 }
 
+export function pathKey(path: readonly (string | number)[]): string {
+    return JSON.stringify(path);
+}
+
+export function samePath(a: readonly (string | number)[] | null | undefined, b: readonly (string | number)[] | null | undefined): boolean {
+    return a === b || Boolean(a && b && a.length === b.length && a.every((part, index) => part === b[index]));
+}
+
+export function pathStartsWith(path: readonly (string | number)[], prefix: readonly (string | number)[]): boolean {
+    return path.length >= prefix.length && prefix.every((part, index) => part === path[index]);
+}
+
+export function pathToPointer(path: readonly (string | number)[]): string {
+    return path.length === 0
+        ? ''
+        : `/${path.map(part => String(part).replace(/~/g, '~0').replace(/\//g, '~1')).join('/')}`;
+}
+
 export async function copyText(text: string): Promise<void> {
     if (navigator.clipboard?.writeText) {
         try {

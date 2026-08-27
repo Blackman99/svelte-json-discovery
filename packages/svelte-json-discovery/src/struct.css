@@ -122,6 +122,31 @@
     box-sizing: border-box;
 }
 
+.sjd-search {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+    font: 12px var(--sjd-ui-font-family, system-ui, sans-serif);
+}
+.sjd-search input {
+    min-width: 12rem;
+}
+.sjd-search-status {
+    min-width: 4.5rem;
+    text-align: center;
+}
+.view-struct .sjd-search-match {
+    background-color: color-mix(in srgb, var(--sjd-match-bg) 45%, transparent);
+}
+.view-struct .sjd-search-current {
+    outline: 1px solid var(--sjd-match-border, currentColor);
+    background-color: var(--sjd-match-bg);
+}
+.view-struct .sjd-selected {
+    outline: 1px solid currentColor;
+}
+
 /* collapsed but expandable root: whole block is clickable */
 .view-struct:has(> .value.struct-expand-value) {
     cursor: pointer;

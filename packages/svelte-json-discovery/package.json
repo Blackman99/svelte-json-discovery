@@ -39,7 +39,8 @@
     "scripts": {
         "build": "svelte-package -i src -o dist",
         "dev": "svelte-package -i src -o dist -w",
-        "check": "svelte-check --tsconfig ./tsconfig.json"
+        "check": "svelte-check --tsconfig ./tsconfig.json",
+        "test": "vitest run"
     },
     "peerDependencies": {
         "svelte": "^5.0.0"
@@ -47,10 +48,14 @@
     "devDependencies": {
         "@sveltejs/package": "^2.5.8",
         "@sveltejs/vite-plugin-svelte": "^7.3.0",
+        "@testing-library/svelte": "^5.4.2",
+        "@testing-library/user-event": "^14.6.6",
         "@tsconfig/svelte": "^5.0.8",
+        "jsdom": "^30.0.1",
         "svelte": "^5.56.9",
         "svelte-check": "^4.7.3",
-        "typescript": "~6.0.3"
+        "typescript": "~6.0.3",
+        "vitest": "^4.1.11"
     },
     "publishConfig": {
         "access": "public"

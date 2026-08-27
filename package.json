@@ -8,6 +8,7 @@
         "build:lib": "pnpm --filter svelte-json-discovery build",
         "build:docs": "pnpm --filter docs build",
         "dev": "pnpm --filter svelte-json-discovery build && pnpm --parallel --stream dev",
+        "test": "pnpm --filter svelte-json-discovery test",
         "check": "pnpm -r check",
         "changeset": "changeset",
         "version-packages": "changeset version",

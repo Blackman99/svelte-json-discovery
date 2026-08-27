@@ -1,5 +1,13 @@
 # svelte-json-discovery
 
+## 0.3.0
+
+### Minor Changes
+
+- 2f76919: Add global key/value search, controlled expansion and selection, an imperative
+  viewer controller, RFC 6901 JSON Pointer copying, windowed collection reads,
+  circular/error isolation, and complete ARIA tree keyboard interaction.
+
 ## 0.2.0
 
 ### Minor Changes

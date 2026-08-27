@@ -3,7 +3,7 @@
     import type { TableSnapshot, TableWindow } from './table-model.js';
     import type { JsonInspectorTableColumn, JsonInspectorTableSort, ValidationIssue } from './types.js';
     import type { ValidationState } from './validation.js';
-    import { pathToPointer, samePath } from '../utils.js';
+    import { pathKey, pathToPointer, samePath } from '../utils.js';
     import { createTablePresentation } from './table-presentation.js';
     import TableCell from './TableCell.svelte';
     import { highestSeverity, issueMarkerLabel, issuesBelowPath } from './validation.js';
@@ -92,7 +92,12 @@
     {/if}
 {/snippet}
 
-<div class='sjd-table-view view-struct sjd-theme-{theme}' style:color-scheme={theme === 'auto' ? 'light dark' : theme}>
+<div
+    class='sjd-table-view view-struct sjd-theme-{theme}'
+    data-json-path='[]'
+    data-json-pointer=''
+    style:color-scheme={theme === 'auto' ? 'light dark' : theme}
+>
     <span class='sjd-table-ordering' role='status' aria-label='Table ordering scope'>
         {controlledSort ? 'Ordering applies to full data and is controlled by the host.' : 'Ordering applies to the current loaded window.'}
     </span>
@@ -117,7 +122,11 @@
         <tbody>
             {#each presentation.rows as row (row.source.index)}
                 <tr class:sjd-selected={samePath(selectedPath, [row.source.index])}>
-                    <th scope='row'>
+                    <th
+                        scope='row'
+                        data-json-path={pathKey([row.source.index])}
+                        data-json-pointer={pathToPointer([row.source.index])}
+                    >
                         <button
                             type='button'
                             aria-label={`Select row ${row.source.index}`}

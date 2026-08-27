@@ -97,8 +97,12 @@ export type JsonInspectorProps = ComponentProps<typeof JsonViewer> & {
     onViewChange?: (view: JsonInspectorView) => void;
     /** Explicit comparison baseline. Supplying a baseline enables the Diff view. */
     compareTo?: unknown;
-    /** Stable precomputed changes. When supplied, these changes bypass built-in comparison. */
-    changeSet?: ChangeSet;
+    /** Stable precomputed changes. When supplied, these changes bypass built-in comparison; null clears them while retaining control. */
+    changeSet?: ChangeSet | null;
+    /** Compare each new data identity with its previous value when no controlled or explicit Diff takes priority. */
+    highlightUpdates?: boolean;
+    /** Automatic update highlight lifetime in milliseconds. Defaults to 1500. */
+    updateHighlightDuration?: number;
     /** Return false to replace the default best-path navigation; otherwise augments it. */
     onChangeSelect?: (change: Change) => boolean | Promise<boolean | void> | void;
     /** Global entity identity resolver for array Diff. Nullish identities fall back to index comparison. */

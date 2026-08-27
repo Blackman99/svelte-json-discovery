@@ -131,7 +131,25 @@ node when possible and otherwise falls back to its nearest ancestor.
 Applications can precompute the same stable protocol with
 `await compareJson(current, baseline, options)` from
 `svelte-json-discovery/diff`, or supply their own `ChangeSet`. A supplied set
-fully bypasses built-in comparison.
+fully bypasses built-in comparison. Pass `null` to keep the prop controlled
+while clearing its visible changes.
+
+For live data, `highlightUpdates` compares each new `data` identity with the
+previous value only when neither `changeSet` nor `compareTo` takes priority.
+The resulting Tree/Table markers and Diff navigation expire after 1500ms by
+default; configure `updateHighlightDuration` for a different lifetime. A
+controlled ChangeSet and explicit baseline remain persistent, rapid updates
+cancel stale comparison and expiry work, and reduced-motion preferences retain
+the visible change state without transition animation.
+
+```svelte
+<JsonInspector
+    data={liveSnapshot}
+    highlightUpdates
+    updateHighlightDuration={2_000}
+    itemIdentity={item => item && typeof item === 'object' ? Reflect.get(item, 'id') : undefined}
+/>
+```
 
 Every standard location carries both a canonical `JsonPath` and RFC 6901
 Pointer. Map and Set positions use `pointer: null` because they are not standard

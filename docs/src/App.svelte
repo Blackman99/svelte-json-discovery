@@ -38,6 +38,7 @@
         ['install', 'Install'],
         ['quick-start', 'Quick start'],
         ['inspector', 'Inspector shell'],
+        ['live-updates', 'Live updates'],
         ['expand', 'Expand depth'],
         ['large-data', 'Large data'],
         ['strings', 'Strings'],
@@ -54,6 +55,8 @@
     ];
 
     let query = $state('discovery');
+    let liveUpdateStep = $state(0);
+    let liveInspectorRows = $state(inspectorRows.slice(0, 4));
     let installCopied = $state(false);
     let activeIds = $state<string[]>([]);
     let sideLinksEl = $state<HTMLElement>();
@@ -135,6 +138,18 @@
         setTimeout(() => (installCopied = false), 1500);
     }
 
+    function simulateLiveUpdate() {
+        liveUpdateStep++;
+        liveInspectorRows = liveUpdateStep % 2 === 1
+            ? [
+                { id: 102, name: 'Grace', role: 'maintainer', profile: { active: true } },
+                { id: 101, name: 'Ada', role: 'maintainer', profile: { active: true } },
+                { id: 104, name: 'Margaret', role: 'maintainer', profile: { active: false } },
+                { id: 106, name: 'Barbara', role: 'reviewer', profile: { active: true } },
+            ]
+            : inspectorRows.slice(0, 4);
+    }
+
     const installTabs = [
         { label: 'pnpm', code: 'pnpm add svelte-json-discovery' },
         { label: 'npm', code: 'npm install svelte-json-discovery' },
@@ -209,6 +224,21 @@
   limit={3}
   maxRawBytes={12 * 1024 * 1024}
   showSearch
+/>`;
+
+    const liveUpdatesCode = `<script lang="ts">
+  import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+  let snapshot = $state(initialSnapshot);
+  const identify = (item: unknown) => (item as { id: number }).id;
+<\/script>
+
+<button onclick={() => snapshot = nextSnapshot}>Simulate update</button>
+<JsonInspector
+  data={snapshot}
+  highlightUpdates
+  updateHighlightDuration={3000}
+  itemIdentity={identify}
 />`;
 
     const expandCode = `<!-- open three levels deep -->
@@ -388,11 +418,22 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw, Table and explicit baseline Diff, while precomputed and cancellable async validation feed one issue workflow.'
+            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw, Table and Diff, while precomputed and cancellable async validation feed one issue workflow.'
             code={inspectorCode}
             note='Open Diff to see identity-aware moves, field changes and additions without an index cascade, then activate a change to reveal it. Comparison is cancellable and capped; validation remains a separate shared workflow.'
         >
             <JsonInspector compareTo={inspectorBaseline} data={inspectorRows} expanded={1} itemIdentity={inspectorIdentity} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
+        </Example>
+
+        <Example
+            id='live-updates'
+            title='Live update highlights'
+            intro='Enable <code>highlightUpdates</code> to compare a new data identity with the previous snapshot. Tree and Table share the transient markers, and Diff keeps the same selectable ChangeSet paths.'
+            code={liveUpdatesCode}
+            note='The demo keeps highlights for three seconds so they are easy to inspect. Controlled <code>changeSet</code> wins first, explicit <code>compareTo</code> wins next, and only automatic history expires.'
+        >
+            <button class='ghost-btn live-update-btn' onclick={simulateLiveUpdate}>Simulate update</button>
+            <JsonInspector data={liveInspectorRows} expanded={2} highlightUpdates itemIdentity={inspectorIdentity} limit={4} theme={t} updateHighlightDuration={3000} />
         </Example>
 
         <!-- ——— expand depth ——— -->
@@ -842,6 +883,12 @@
     .demo-input:focus {
         border-color: var(--accent);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+
+    .live-update-btn {
+        margin-bottom: 12px;
+        background: transparent;
+        cursor: pointer;
     }
 
     .theme-grid {

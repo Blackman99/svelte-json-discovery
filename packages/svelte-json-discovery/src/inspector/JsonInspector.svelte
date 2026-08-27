@@ -4,7 +4,8 @@
     import type { StrictJsonResult } from './strict-json.js';
     import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic, ValidationIssue } from './types.js';
     import type { ValidationState } from './validation.js';
-    import { onDestroy, tick } from 'svelte';
+    import { onDestroy, onMount, tick } from 'svelte';
+    import { observeChangeMarkers } from '../diff/change-markers.js';
     import { normalizeChangeSet } from '../diff/change-set.js';
     import { compareJson } from '../diff/compare.js';
     import DiffView from '../diff/DiffView.svelte';
@@ -33,7 +34,9 @@
         { id: 'diff', label: 'Diff', disabledReason: null },
     ];
     const DEFAULT_VIEWS = BUILT_IN_VIEWS.map(view => view.id);
+    const DEFAULT_UPDATE_HIGHLIGHT_DURATION = 1_500;
     const EMPTY_CHANGE_SET: ChangeSet = Object.freeze({ changes: Object.freeze([]) });
+    const NO_AUTOMATIC_BASELINE = Symbol('no automatic baseline');
     const inspectorId = $props.id();
 
     const {
@@ -43,6 +46,8 @@
         views = DEFAULT_VIEWS,
         onViewChange,
         changeSet,
+        highlightUpdates = false,
+        updateHighlightDuration = DEFAULT_UPDATE_HIGHLIGHT_DURATION,
         onChangeSelect,
         itemIdentity,
         itemIdentityRules,
@@ -67,6 +72,7 @@
     let viewer = $state<JsonViewerHandle>();
     let toolbar = $state<HTMLElement>();
     let treePanel = $state<HTMLElement>();
+    let tablePanel = $state<HTMLElement>();
     // svelte-ignore state_referenced_locally
     let internalView = $state<JsonInspectorView>(initialView(defaultView, views));
     // svelte-ignore state_referenced_locally
@@ -94,11 +100,15 @@
     let validationRestarted = false;
     let diffRunGeneration = 0;
     let diffRestarted = false;
+    let automaticBaseline = $state<unknown>(NO_AUTOMATIC_BASELINE);
+    let prefersReducedMotion = $state(false);
     let diffComparison = $state<{
         announcement: string;
+        baseline: unknown;
         changeSet: ChangeSet;
+        source: 'automatic' | 'explicit' | 'none';
         status: 'cancelled' | 'failure' | 'idle' | 'pending' | 'success' | 'truncated';
-    }>({ announcement: '', changeSet: EMPTY_CHANGE_SET, status: 'idle' });
+    }>({ announcement: '', baseline: undefined, changeSet: EMPTY_CHANGE_SET, source: 'none', status: 'idle' });
     let asyncValidation = $state<{
         announcement: string;
         state: ValidationState;
@@ -132,6 +142,16 @@
         validationSelectionGeneration++;
     });
 
+    onMount(() => {
+        const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+        if (!media)
+            return;
+        const update = () => prefersReducedMotion = media.matches;
+        update();
+        media.addEventListener?.('change', update);
+        return () => media.removeEventListener?.('change', update);
+    });
+
     const hasTableView = $derived(views.includes('table'));
     const tableBatchSize = $derived(viewerProps.limit === false ? Number.MAX_SAFE_INTEGER : intOption(viewerProps.limit, 50));
     const tableModel = $derived(createTableWindow(hasTableView ? data : null, tableBatchSize));
@@ -140,11 +160,23 @@
         return tableModel.snapshot();
     });
     const hasExplicitBaseline = $derived(Object.hasOwn(viewerProps, 'compareTo'));
-    const comparisonBaseline = $derived(viewerProps.compareTo);
-    const normalizedProvidedChanges = $derived(changeSet === undefined ? null : normalizeChangeSet(changeSet));
+    const explicitBaseline = $derived(viewerProps.compareTo);
+    const normalizedProvidedChanges = $derived(changeSet === undefined
+        ? null
+        : changeSet === null
+        ? { changeSet: EMPTY_CHANGE_SET, invalidCount: 0 }
+        : normalizeChangeSet(changeSet));
     const activeChangeSet = $derived(normalizedProvidedChanges?.changeSet ?? diffComparison.changeSet);
+    const activeChangeSource = $derived<'automatic' | 'controlled' | 'explicit' | 'none'>(
+        normalizedProvidedChanges ? 'controlled' : diffComparison.source,
+    );
+    const comparisonBaseline = $derived(activeChangeSource === 'automatic' ? diffComparison.baseline : explicitBaseline);
+    const hasComparisonBaseline = $derived(hasExplicitBaseline || activeChangeSource === 'automatic');
+    const highlightDuration = $derived(normalizeHighlightDuration(updateHighlightDuration));
     const diffDisabledReason = $derived(
-        changeSet === undefined && !hasExplicitBaseline ? 'Diff view requires compareTo or a ChangeSet.' : null,
+        changeSet === undefined && !hasExplicitBaseline && !highlightUpdates
+            ? 'Diff view requires compareTo or a ChangeSet.'
+            : null,
     );
     const registeredViews = $derived(resolveViews(views, rawResult.reason, tableSnapshot.disabledReason, diffDisabledReason));
     const activeView = $derived(resolveActiveView(view, internalView, registeredViews));
@@ -174,18 +206,30 @@
 
     $effect(() => {
         const source = data;
-        const baseline = comparisonBaseline;
+        const controlled = changeSet !== undefined;
+        const explicit = hasExplicitBaseline;
+        const updateBaseline = automaticBaseline;
+        const mode = controlled
+            ? 'none'
+            : explicit
+            ? 'explicit'
+            : highlightUpdates && updateBaseline !== NO_AUTOMATIC_BASELINE
+            ? 'automatic'
+            : 'none';
+        const baseline = mode === 'explicit' ? explicitBaseline : updateBaseline;
         const globalIdentity = itemIdentity;
         const pathIdentities = itemIdentityRules;
         const nodeLimit = maxDiffNodes;
         const depthLimit = maxDiffDepth;
         const resultLimit = maxDiffResults;
-        const shouldCompare = hasExplicitBaseline && changeSet === undefined;
-        if (!shouldCompare) {
+        const duration = highlightDuration;
+        if (mode === 'none') {
             diffRunGeneration++;
             diffComparison = {
                 announcement: diffRestarted ? 'Comparison cancelled.' : '',
+                baseline: undefined,
                 changeSet: EMPTY_CHANGE_SET,
+                source: 'none',
                 status: diffRestarted ? 'cancelled' : 'idle',
             };
             diffRestarted = false;
@@ -196,10 +240,22 @@
         const controller = new AbortController();
         const restarted = diffRestarted;
         let settled = false;
+        let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleExpiry = () => {
+            if (mode !== 'automatic')
+                return;
+            expiryTimer = setTimeout(() => {
+                if (!destroyed && generation === diffRunGeneration) {
+                    automaticBaseline = NO_AUTOMATIC_BASELINE;
+                }
+            }, duration);
+        };
         diffRestarted = false;
         diffComparison = {
             announcement: restarted ? 'Comparison cancelled. Comparing…' : 'Comparing…',
+            baseline,
             changeSet: EMPTY_CHANGE_SET,
+            source: mode,
             status: 'pending',
         };
         void compareJson(source, baseline, {
@@ -215,10 +271,15 @@
                 return;
             }
             diffComparison = {
-                announcement: result.truncated ? truncationAnnouncement(result.truncated) : 'Comparison complete.',
+                announcement: result.truncated
+                    ? truncationAnnouncement(result.truncated)
+                    : mode === 'automatic' ? 'Update highlights ready.' : 'Comparison complete.',
+                baseline,
                 changeSet: result,
+                source: mode,
                 status: result.truncated ? 'truncated' : 'success',
             };
+            scheduleExpiry();
         }).catch((error: unknown) => {
             settled = true;
             if (destroyed || controller.signal.aborted || generation !== diffRunGeneration) {
@@ -226,12 +287,17 @@
             }
             diffComparison = {
                 announcement: `Comparison failed: ${errorMessage(error)}`,
+                baseline,
                 changeSet: EMPTY_CHANGE_SET,
+                source: mode,
                 status: 'failure',
             };
+            scheduleExpiry();
         });
         return () => {
             controller.abort();
+            if (expiryTimer !== undefined)
+                clearTimeout(expiryTimer);
             if (!settled) {
                 diffRestarted = true;
             }
@@ -351,6 +417,20 @@
         };
     });
 
+    $effect(() => observeChangeMarkers(treePanel, activeChangeSet, {
+        fallbackToAncestor: true,
+        markerClass: 'sjd-update-marker',
+        nodeClass: 'sjd-update-highlight',
+        side: 'current',
+    }));
+
+    $effect(() => observeChangeMarkers(tablePanel, activeChangeSet, {
+        fallbackToAncestor: true,
+        markerClass: 'sjd-update-marker',
+        nodeClass: 'sjd-update-highlight',
+        side: 'current',
+    }));
+
     $effect(() => {
         const source = data;
         const byteLimit = maxRawBytes;
@@ -406,7 +486,10 @@
 
     $effect.pre(() => {
         if (data !== previousData) {
+            const baseline = previousData;
+            const shouldTrackUpdate = highlightUpdates && changeSet === undefined && !hasExplicitBaseline;
             previousData = data;
+            automaticBaseline = shouldTrackUpdate ? baseline : NO_AUTOMATIC_BASELINE;
             validationSelectionGeneration++;
             validationNavigation = '';
             if (rawResult.status === 'pending') {
@@ -436,6 +519,12 @@
                 rawController?.abort();
                 rawRestart++;
             }
+        }
+    });
+
+    $effect.pre(() => {
+        if ((!highlightUpdates || changeSet !== undefined || hasExplicitBaseline) && automaticBaseline !== NO_AUTOMATIC_BASELINE) {
+            automaticBaseline = NO_AUTOMATIC_BASELINE;
         }
     });
 
@@ -617,6 +706,10 @@
         return `Comparison truncated by the ${truncation.reason} limit (${truncation.limit}) at ${location}.`;
     }
 
+    function normalizeHighlightDuration(value: number): number {
+        return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : DEFAULT_UPDATE_HIGHLIGHT_DURATION;
+    }
+
     function normalizedTableMatch(primary: unknown, fallback: unknown): RegExp | string | null {
         const query = normalizeSearchQuery(primary);
         if (query !== null) {
@@ -709,7 +802,14 @@
     }
 </script>
 
-<div class='sjd-inspector' data-active-view={activeView} data-active-path={JSON.stringify(activePath)}>
+<div
+    class='sjd-inspector'
+    data-active-view={activeView}
+    data-active-path={JSON.stringify(activePath)}
+    data-change-source={activeChangeSource}
+    data-update-motion={prefersReducedMotion ? 'reduced' : 'animated'}
+    style={`--sjd-update-highlight-duration: ${highlightDuration}ms`}
+>
     <ValidationSummary state={validationState} onSelect={selectValidationIssue} />
     {#if asyncValidation.announcement}
         <div class='sjd-inspector-status' role='status' aria-label='Validation status'>{asyncValidation.announcement}</div>
@@ -801,6 +901,7 @@
     {/if}
     {#if tableSnapshot.disabledReason === null}
         <div
+            bind:this={tablePanel}
             class='sjd-inspector-view'
             data-view-panel='table'
             aria-label='Table view'
@@ -835,7 +936,7 @@
                 baseline={comparisonBaseline}
                 changeSet={activeChangeSet}
                 current={data}
-                hasBaseline={hasExplicitBaseline}
+                hasBaseline={hasComparisonBaseline}
                 onSelect={onChangeSelect}
                 {viewerProps}
             />

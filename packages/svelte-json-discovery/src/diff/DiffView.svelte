@@ -5,6 +5,7 @@
     import type { Change, ChangeKind, ChangeSet } from './types.js';
     import { onDestroy } from 'svelte';
     import Viewer from '../JsonViewer.svelte';
+    import { observeChangeMarkers } from './change-markers.js';
     import './diff.css';
 
     type ViewerProps = Omit<ComponentProps<typeof JsonViewer>, 'data'>;
@@ -55,8 +56,8 @@
         navigationStatus = '';
     });
 
-    $effect(() => observeMarkers(currentPanel, changeSet, 'current'));
-    $effect(() => observeMarkers(baselinePanel, changeSet, 'baseline'));
+    $effect(() => observeChangeMarkers(currentPanel, changeSet, { markerClass: 'sjd-diff-marker', side: 'current' }));
+    $effect(() => observeChangeMarkers(baselinePanel, changeSet, { markerClass: 'sjd-diff-marker', side: 'baseline' }));
 
     async function selectChange(change: Change) {
         const generation = ++selectionGeneration;
@@ -108,80 +109,6 @@
             }
         }
         return false;
-    }
-
-    function observeMarkers(panel: HTMLElement | undefined, set: ChangeSet, side: 'baseline' | 'current') {
-        if (!panel) {
-            return;
-        }
-        let queued = false;
-        let disposed = false;
-        const sync = () => {
-            queued = false;
-            if (!disposed) {
-                syncMarkers(panel, set, side);
-            }
-        };
-        const schedule = () => {
-            if (!queued) {
-                queued = true;
-                queueMicrotask(sync);
-            }
-        };
-        sync();
-        const observer = new MutationObserver(schedule);
-        observer.observe(panel, { childList: true, subtree: true });
-        return () => {
-            disposed = true;
-            observer.disconnect();
-            panel.querySelectorAll('.sjd-diff-marker').forEach(marker => marker.remove());
-        };
-    }
-
-    function syncMarkers(panel: HTMLElement, set: ChangeSet, side: 'baseline' | 'current') {
-        const byPath: Record<string, Change[]> = Object.create(null);
-        for (const change of set.changes) {
-            if ((side === 'current' && change.kind === 'removed') || (side === 'baseline' && change.kind === 'added')) {
-                continue;
-            }
-            const path = side === 'baseline' && change.kind === 'moved' ? change.previousPath : change.path;
-            const encoded = JSON.stringify(path);
-            const related = byPath[encoded] ?? [];
-            related.push(change);
-            byPath[encoded] = related;
-        }
-        for (const node of panel.querySelectorAll<HTMLElement>('[role="treeitem"][data-json-path]')) {
-            const related = byPath[node.dataset.jsonPath ?? ''];
-            const existing = node.querySelector<HTMLElement>(':scope > .sjd-diff-marker');
-            if (!related || related.length === 0) {
-                existing?.remove();
-                continue;
-            }
-            const kinds = [...new Set(related.map(change => change.kind))];
-            const marker = existing ?? document.createElement('span');
-            const labels = kinds.map(titleCase);
-            const kindValue = kinds.join(' ');
-            const diagnosticMessages = related.flatMap(change => change.diagnostic ? [change.diagnostic.message] : []);
-            const labelValue = diagnosticMessages.length > 0
-                ? `${labels.join(', ')}: ${diagnosticMessages.join('; ')}`
-                : labels.join(', ');
-            const textValue = labels.map(label => label[0]).join('');
-            marker.className = 'sjd-diff-marker';
-            marker.setAttribute('role', 'img');
-            if (marker.dataset.kind !== kindValue) {
-                marker.dataset.kind = kindValue;
-            }
-            if (marker.getAttribute('aria-label') !== labelValue) {
-                marker.setAttribute('aria-label', labelValue);
-            }
-            if (marker.textContent !== textValue) {
-                marker.textContent = textValue;
-            }
-            if (!existing) {
-                const group = [...node.children].find(child => child.getAttribute('role') === 'group');
-                node.insertBefore(marker, group ?? null);
-            }
-        }
     }
 
     function titleCase(value: string): string {

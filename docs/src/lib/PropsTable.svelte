@@ -24,6 +24,9 @@
         ['schema', 'object | null', 'null', 'JSON Schema for data; documented fields get hover tooltips'],
         ['plugins', 'readonly JsonViewerPlugin[]', '[]', 'Experimental instance-scoped node renderers and actions'],
         ['onPluginError', '(failure) => void', '—', 'Reports localized plugin predicate, renderer and action failures'],
+        ['compareTo', 'unknown', '—', 'Explicit Inspector Diff baseline'],
+        ['changeSet', 'ChangeSet', '—', 'Precomputed stable changes; bypasses built-in comparison'],
+        ['onChangeSelect', '(change) => void | false', '—', 'Runs before default Diff navigation'],
     ];
 </script>
 

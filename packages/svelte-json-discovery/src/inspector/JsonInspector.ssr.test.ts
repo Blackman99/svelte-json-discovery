@@ -2,6 +2,7 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import packageJson from '../../package.json';
+import * as diffEntry from '../diff/index.js';
 import * as mainEntry from '../index.js';
 import * as validationEntry from '../validation/index.js';
 import { JsonInspector } from './index.js';
@@ -17,6 +18,13 @@ describe('json inspector package boundary', () => {
     it('publishes only through the optional subpath and stays out of the main entry graph', () => {
         expect(packageJson.exports['./inspector']).toBeTruthy();
         expect(mainEntry).not.toHaveProperty('JsonInspector');
+    });
+
+    it('keeps comparison utilities in a stable optional Diff entry', () => {
+        expect(packageJson.exports['./diff']).toBeTruthy();
+        expect(diffEntry).toHaveProperty('compareJson');
+        expect(mainEntry).not.toHaveProperty('compareJson');
+        expect('dependencies' in packageJson && packageJson.dependencies).toBeFalsy();
     });
 
     it('keeps the Ajv adapter in its own optional entry graph', () => {

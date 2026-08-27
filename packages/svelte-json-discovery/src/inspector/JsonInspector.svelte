@@ -1,9 +1,13 @@
 <script lang='ts'>
+    import type { ChangeSet } from '../diff/types.js';
     import type { JsonPath, JsonViewerHandle, JsonViewerSearchState, StructOptions } from '../types.js';
     import type { StrictJsonResult } from './strict-json.js';
     import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic, ValidationIssue } from './types.js';
     import type { ValidationState } from './validation.js';
     import { onDestroy, tick } from 'svelte';
+    import { normalizeChangeSet } from '../diff/change-set.js';
+    import { compareJson } from '../diff/compare.js';
+    import DiffView from '../diff/DiffView.svelte';
     import JsonViewer from '../JsonViewer.svelte';
     import { normalizeSearchQuery } from '../search.js';
     import { intOption, listLimit } from '../struct-helpers.js';
@@ -26,9 +30,10 @@
         { id: 'tree', label: 'Tree', disabledReason: null },
         { id: 'raw', label: 'Raw', disabledReason: null },
         { id: 'table', label: 'Table', disabledReason: null },
-        { id: 'diff', label: 'Diff', disabledReason: 'Diff view is not available in this build.' },
+        { id: 'diff', label: 'Diff', disabledReason: null },
     ];
     const DEFAULT_VIEWS = BUILT_IN_VIEWS.map(view => view.id);
+    const EMPTY_CHANGE_SET: ChangeSet = Object.freeze({ changes: Object.freeze([]) });
     const inspectorId = $props.id();
 
     const {
@@ -37,6 +42,8 @@
         defaultView = 'tree',
         views = DEFAULT_VIEWS,
         onViewChange,
+        changeSet,
+        onChangeSelect,
         search,
         onSearchChange,
         onSearchStateChange,
@@ -119,7 +126,16 @@
         void tableVersion;
         return tableModel.snapshot();
     });
-    const registeredViews = $derived(resolveViews(views, rawResult.reason, tableSnapshot.disabledReason));
+    const hasExplicitBaseline = $derived(Object.hasOwn(viewerProps, 'compareTo'));
+    const comparisonBaseline = $derived(viewerProps.compareTo);
+    const normalizedProvidedChanges = $derived(changeSet === undefined ? null : normalizeChangeSet(changeSet));
+    const activeChangeSet = $derived(normalizedProvidedChanges?.changeSet ?? (
+        hasExplicitBaseline ? compareJson(data, comparisonBaseline) : EMPTY_CHANGE_SET
+    ));
+    const diffDisabledReason = $derived(
+        changeSet === undefined && !hasExplicitBaseline ? 'Diff view requires compareTo or a ChangeSet.' : null,
+    );
+    const registeredViews = $derived(resolveViews(views, rawResult.reason, tableSnapshot.disabledReason, diffDisabledReason));
     const activeView = $derived(resolveActiveView(view, internalView, registeredViews));
     const sharedSearch = $derived(search === undefined ? internalSearch : search);
     const sharedSelectedPath = $derived(selectedPath === undefined ? internalSelectedPath : selectedPath);
@@ -350,6 +366,7 @@
         ids: readonly JsonInspectorView[],
         rawDisabledReason: string | null,
         tableDisabledReason: string | null,
+        diffReason: string | null,
     ): ViewRegistration[] {
         const unique = new Set(ids);
         const resolved = BUILT_IN_VIEWS
@@ -360,6 +377,9 @@
                 }
                 if (candidate.id === 'table') {
                     return { ...candidate, disabledReason: tableDisabledReason };
+                }
+                if (candidate.id === 'diff') {
+                    return { ...candidate, disabledReason: diffReason };
                 }
                 return candidate;
             });
@@ -620,6 +640,11 @@
     {#if validationNavigation}
         <div class='sjd-inspector-status' role='status' aria-label='Validation navigation'>{validationNavigation}</div>
     {/if}
+    {#if normalizedProvidedChanges && normalizedProvidedChanges.invalidCount > 0}
+        <div class='sjd-inspector-status' role='status' aria-label='ChangeSet diagnostics'>
+            Ignored {normalizedProvidedChanges.invalidCount} invalid ChangeSet {normalizedProvidedChanges.invalidCount === 1 ? 'entry' : 'entries'}.
+        </div>
+    {/if}
     <div
         class='sjd-inspector-toolbar'
         bind:this={toolbar}
@@ -712,6 +737,22 @@
                 sort={tableSort}
                 theme={inspectorTheme}
                 validation={validationState}
+            />
+        </div>
+    {/if}
+    {#if diffDisabledReason === null && activeView === 'diff'}
+        <div
+            class='sjd-inspector-view'
+            data-view-panel='diff'
+            aria-label='Diff view'
+        >
+            <DiffView
+                baseline={comparisonBaseline}
+                changeSet={activeChangeSet}
+                current={data}
+                hasBaseline={hasExplicitBaseline}
+                onSelect={onChangeSelect}
+                {viewerProps}
             />
         </div>
     {/if}

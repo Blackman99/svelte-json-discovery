@@ -1,0 +1,87 @@
+.sjd-diff-summary {
+    border-block-end: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    padding: 0.75rem;
+}
+
+.sjd-diff-summary ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+}
+
+.sjd-diff-summary button {
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 0.35rem;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.25rem 0.45rem;
+}
+
+.sjd-diff-summary button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.sjd-diff-values {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
+}
+
+.sjd-diff-value {
+    min-width: 0;
+    overflow: auto;
+    padding: 0.5rem;
+}
+
+.sjd-diff-marker {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 0.65rem;
+    font-weight: 700;
+    height: 1.1rem;
+    justify-content: center;
+    margin-inline-start: 0.35rem;
+    min-width: 1.1rem;
+    padding-inline: 0.25rem;
+}
+
+.sjd-diff-marker[data-kind~='added'] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.sjd-diff-marker[data-kind~='removed'] {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.sjd-diff-marker[data-kind~='changed'],
+.sjd-diff-marker[data-kind~='moved'] {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+@media (prefers-color-scheme: dark) {
+    .sjd-diff-marker[data-kind~='added'] {
+        background: #14532d;
+        color: #bbf7d0;
+    }
+
+    .sjd-diff-marker[data-kind~='removed'] {
+        background: #7f1d1d;
+        color: #fecaca;
+    }
+
+    .sjd-diff-marker[data-kind~='changed'],
+    .sjd-diff-marker[data-kind~='moved'] {
+        background: #78350f;
+        color: #fde68a;
+    }
+}

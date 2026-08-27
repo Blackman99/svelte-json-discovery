@@ -1,8 +1,10 @@
 import type { Component, ComponentProps, Snippet } from 'svelte';
+import type { Change, ChangeSet } from '../diff/types.js';
 import type JsonViewer from '../JsonViewer.svelte';
 import type { JsonPath, JsonViewerHandle, JsonViewerNode } from '../types.js';
 import type { JsonValidator, ValidationIssue } from '../validation/types.js';
 
+export type { Change, ChangeKind, ChangeSet } from '../diff/types.js';
 export type { JsonValidator, ValidationIssue, ValidationIssueSeverity } from '../validation/types.js';
 
 export type JsonInspectorView = 'tree' | 'raw' | 'table' | 'diff';
@@ -81,6 +83,12 @@ export type JsonInspectorProps = ComponentProps<typeof JsonViewer> & {
     views?: readonly JsonInspectorView[];
     /** Called when an available view is requested. */
     onViewChange?: (view: JsonInspectorView) => void;
+    /** Explicit comparison baseline. Supplying a baseline enables the Diff view. */
+    compareTo?: unknown;
+    /** Stable precomputed changes. When supplied, these changes bypass built-in comparison. */
+    changeSet?: ChangeSet;
+    /** Return false to replace the default best-path navigation; otherwise augments it. */
+    onChangeSelect?: (change: Change) => boolean | Promise<boolean | void> | void;
     /** Maximum retained UTF-8 bytes for complete Raw output. */
     maxRawBytes?: number;
     /** Controlled Table columns. Omit to derive automatic columns from the loaded window. */

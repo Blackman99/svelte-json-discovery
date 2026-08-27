@@ -1,5 +1,8 @@
 export { default as JsonInspector } from './JsonInspector.svelte';
 export type {
+    Change,
+    ChangeKind,
+    ChangeSet,
     JsonInspectorHandle,
     JsonInspectorProps,
     JsonInspectorTableCellRenderer,

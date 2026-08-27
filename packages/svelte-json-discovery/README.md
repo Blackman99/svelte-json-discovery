@@ -76,8 +76,8 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 ### Optional Inspector shell
 
 Import the toolbar and shared inspection state from the optional subpath. Tree,
-strict Raw and automatic object-array Table are available now; Diff remains
-visible with an accessible unavailable reason.
+strict Raw, automatic object-array Table and explicit baseline Diff share the
+same accessible view toolbar.
 
 ```svelte
 <script lang='ts'>
@@ -100,6 +100,34 @@ visible with an accessible unavailable reason.
 Tree search, selected path, active match and controller methods, so existing
 `JsonViewerHandle` integrations can move to the shell without losing Tree
 behavior. The main package entry does not import the optional Inspector graph.
+
+Diff is enabled by an explicit `compareTo` baseline. The built-in comparator
+walks primitives, plain objects in sorted key order and arrays by index without
+modifying either input. An application can instead supply a stable `ChangeSet`;
+when present, it bypasses comparison and can represent `added`, `removed`,
+`changed`, or `moved` paths. Activating a change focuses the exact current or
+baseline node when possible and otherwise falls back to its nearest ancestor.
+
+```svelte
+<script lang='ts'>
+    import type { ChangeSet } from 'svelte-json-discovery/diff';
+    import { compareJson } from 'svelte-json-discovery/diff';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+    const baseline = { users: [{ id: 1, role: 'reviewer' }] };
+    const current = { users: [{ id: 1, role: 'maintainer' }, { id: 2, role: 'reviewer' }] };
+    const changeSet: ChangeSet = compareJson(current, baseline);
+</script>
+
+<JsonInspector data={current} compareTo={baseline} {changeSet} />
+```
+
+Every standard location carries both a canonical `JsonPath` and RFC 6901
+Pointer. A moved change additionally carries `previousPath` and
+`previousPointer`. Malformed precomputed entries are ignored with a local
+diagnostic. `onChangeSelect` runs before default navigation; return `false` to
+replace it. `Change`, `ChangeKind`, `ChangeSet`, `compareJson`, and
+`normalizeChangeSet` are exported from the dependency-free `./diff` subpath.
 
 Raw is generated asynchronously and enabled only when the complete input is
 representable as strict JSON. It formats with two-space indentation and enables

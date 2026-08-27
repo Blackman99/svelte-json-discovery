@@ -4,7 +4,7 @@
     import type { JsonValidator } from 'svelte-json-discovery/validation';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
-    import { actionsDemo, bigArray, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
+    import { actionsDemo, bigArray, inspectorBaseline, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
     import PropsTable from './lib/PropsTable.svelte';
@@ -174,6 +174,9 @@
     { id: 1, name: 'Ada', profile: { active: true } },
     { id: 2, name: 'Grace', profile: { active: false } }
   ];
+  const baseline = [
+    { id: 1, name: 'Ada', profile: { active: false } }
+  ];
   const issues: ValidationIssue[] = [{
     path: [1, 'name'],
     pointer: '/1/name',
@@ -194,6 +197,7 @@
 
 <JsonInspector
   data={rows}
+  compareTo={baseline}
   {view}
   onViewChange={next => view = next}
   {tableColumns}
@@ -381,11 +385,11 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw and Table, while precomputed and cancellable async validation feed one issue workflow.'
+            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw, Table and explicit baseline Diff, while precomputed and cancellable async validation feed one issue workflow.'
             code={inspectorCode}
-            note='The summary combines two precomputed issues with one async-policy issue. Validation state is announced without blocking Tree; changing data aborts stale work. Optional Ajv, Zod and Valibot adapters stay in separate entry points.'
+            note='Open Diff to compare the current rows with the explicit baseline, then activate a change to reveal it. The validation summary combines two precomputed issues with one async-policy issue; optional adapters stay in separate entry points.'
         >
-            <JsonInspector data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
+            <JsonInspector compareTo={inspectorBaseline} data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
         </Example>
 
         <!-- ——— expand depth ——— -->

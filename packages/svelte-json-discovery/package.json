@@ -34,6 +34,10 @@
             "svelte": "./dist/inspector/index.js",
             "default": "./dist/inspector/index.js"
         },
+        "./diff": {
+            "types": "./dist/diff/index.d.ts",
+            "default": "./dist/diff/index.js"
+        },
         "./validation": {
             "types": "./dist/validation/index.d.ts",
             "default": "./dist/validation/index.js"

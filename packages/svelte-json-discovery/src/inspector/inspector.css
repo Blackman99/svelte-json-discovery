@@ -1,0 +1,52 @@
+.sjd-inspector {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.sjd-inspector-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sjd-inspector-toolbar button {
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 4px;
+    padding: 4px 9px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sjd-inspector-toolbar button[aria-pressed='true'] {
+    border-color: currentColor;
+    font-weight: 600;
+}
+
+.sjd-inspector-toolbar button[aria-disabled='true'] {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.sjd-inspector-status {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.sjd-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.sjd-inspector-view {
+    min-width: 0;
+}

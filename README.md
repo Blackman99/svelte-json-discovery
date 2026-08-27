@@ -48,6 +48,8 @@ pnpm add svelte-json-discovery
   wraparound navigation and automatic reveal; legacy match highlighting remains
 - 🎛️ **Controlled paths and controller methods** — expand, collapse, focus,
   scroll, select and navigate matches through application state or `bind:this`
+- 🧭 **Optional Inspector shell** — import an accessible controlled view toolbar
+  from `svelte-json-discovery/inspector` without adding it to the main entry graph
 - 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
   formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants

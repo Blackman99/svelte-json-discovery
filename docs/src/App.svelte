@@ -1,6 +1,7 @@
 <script lang='ts'>
     import type { JsonViewerPlugin } from 'svelte-json-discovery';
     import { JsonViewer } from 'svelte-json-discovery';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
     import { actionsDemo, bigArray, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
@@ -14,6 +15,7 @@
     const navItems: [string, string][] = [
         ['install', 'Install'],
         ['quick-start', 'Quick start'],
+        ['inspector', 'Inspector shell'],
         ['expand', 'Expand depth'],
         ['large-data', 'Large data'],
         ['strings', 'Strings'],
@@ -130,6 +132,15 @@
 <\/script>
 
 <JsonViewer {data} />`;
+
+    const inspectorCode = `<script lang="ts">
+  import type { JsonInspectorView } from 'svelte-json-discovery/inspector';
+  import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+  let view = $state<JsonInspectorView>('tree');
+<\/script>
+
+<JsonInspector data={data} {view} onViewChange={next => view = next} showSearch />`;
 
     const expandCode = `<!-- open three levels deep -->
 <JsonViewer data={config} expanded={3} />
@@ -302,6 +313,17 @@
             code={quickStartCode}
         >
             <JsonViewer data={quickStart} expanded={1} theme={t} />
+        </Example>
+
+        <!-- ——— inspector shell ——— -->
+        <Example
+            id='inspector'
+            title='Inspector shell'
+            intro='The optional Inspector subpath wraps the existing Tree in an accessible, controlled view toolbar. Search, selection, active match and controller behavior stay canonical across the shell.'
+            code={inspectorCode}
+            note='Raw, Table and Diff are shown with accessible unavailable reasons in this foundation slice. Restrict the ordered toolbar with the <code>views</code> prop.'
+        >
+            <JsonInspector data={quickStart} expanded={1} showSearch theme={t} />
         </Example>
 
         <!-- ——— expand depth ——— -->

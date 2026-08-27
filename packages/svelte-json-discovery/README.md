@@ -73,6 +73,33 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 <JsonViewer {data} expanded={2} />
 ```
 
+### Optional Inspector shell
+
+Import the toolbar and shared inspection state from the optional subpath. The
+Tree view is available now; Raw, Table and Diff remain visible with accessible
+unavailable reasons until their optional implementations are added.
+
+```svelte
+<script lang='ts'>
+    import type { JsonInspectorView } from 'svelte-json-discovery/inspector';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+    let view = $state<JsonInspectorView>('tree');
+</script>
+
+<JsonInspector
+    data={{ hello: 'world' }}
+    {view}
+    onViewChange={next => view = next}
+    showSearch
+/>
+```
+
+`views` restricts the ordered toolbar registry. `JsonInspector` preserves the
+Tree search, selected path, active match and controller methods, so existing
+`JsonViewerHandle` integrations can move to the shell without losing Tree
+behavior. The main package entry does not import the optional Inspector graph.
+
 ### Search and programmatic control
 
 ```svelte

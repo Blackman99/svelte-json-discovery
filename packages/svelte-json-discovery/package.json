@@ -29,6 +29,11 @@
             "svelte": "./dist/index.js",
             "default": "./dist/index.js"
         },
+        "./inspector": {
+            "types": "./dist/inspector/index.d.ts",
+            "svelte": "./dist/inspector/index.js",
+            "default": "./dist/inspector/index.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "./dist/index.d.ts",

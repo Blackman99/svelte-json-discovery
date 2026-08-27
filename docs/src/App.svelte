@@ -19,7 +19,7 @@
         ['strings', 'Strings'],
         ['highlight', 'Match highlighting'],
         ['search-control', 'Search & control'],
-        ['plugins', 'Custom renderers'],
+        ['plugins', 'Plugins'],
         ['special-types', 'Beyond JSON'],
         ['value-actions', 'Value actions'],
         ['schema-docs', 'Field docs'],
@@ -161,11 +161,27 @@
 </button>`;
 
     const pluginData = { service: 'checkout-api', status: 'healthy', latencyMs: 84 };
+    let pluginActionMessage = $state('Open the latency node actions to run the plugin command.');
     const plugins: JsonViewerPlugin[] = [{
         id: 'status-pill',
         renderers: [{
             when: node => node.key === 'status',
             component: StatusRenderer,
+        }],
+        actions: [{
+            id: 'inspect-latency',
+            label: 'Inspect latency',
+            when: node => node.key === 'latencyMs',
+            async run({ node, signal }) {
+                await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(resolve, 400);
+                    signal.addEventListener('abort', () => {
+                        clearTimeout(timer);
+                        reject(signal.reason);
+                    }, { once: true });
+                });
+                pluginActionMessage = `Inspected latency: ${node.value} ms`;
+            },
         }],
     }];
     const pluginsCode = `<script lang="ts">
@@ -177,11 +193,19 @@
     renderers: [{
       when: node => node.key === 'status',
       component: StatusRenderer
+    }],
+    actions: [{
+      id: 'inspect-latency',
+      label: 'Inspect latency',
+      when: node => node.key === 'latencyMs',
+      async run({ node, signal }) {
+        await inspectLatency(node.value, { signal });
+      }
     }]
   }];
 <\/script>
 
-<JsonViewer data={service} {plugins} />`;
+<JsonViewer data={service} {plugins} onPluginError={reportPluginError} />`;
 
     const specialCode = `const data = {
   date: new Date(),
@@ -336,15 +360,16 @@
             <JsonViewer data={searchable} showSearch expanded={0} theme={t} />
         </Example>
 
-        <!-- ——— custom renderers ——— -->
+        <!-- ——— plugins ——— -->
         <Example
             id='plugins'
-            title='Custom renderers'
-            intro='Register ordered, instance-scoped plugins to replace matching Tree nodes with a Svelte Component or Snippet. The first match wins and the built-in presentation remains the fallback.'
+            title='Custom renderers and actions'
+            intro='Register instance-scoped plugins to replace matching Tree nodes or attach sync and async node commands. Actions expose pending state, support cancellation and always restore focus.'
             code={pluginsCode}
-            note='<code>JsonViewerNode</code> is stable and immutable. The plugin and renderer contracts are experimental in this release and may evolve from integration feedback.'
+            note='<code>JsonViewerNode</code> is stable and immutable. Action handlers receive an <code>AbortSignal</code>; localized failures are reported through <code>onPluginError</code>. Plugin contracts remain experimental.'
         >
             <JsonViewer data={pluginData} {plugins} expanded={1} theme={t} />
+            <p class='demo-note' aria-live='polite'>{pluginActionMessage}</p>
         </Example>
 
         <!-- ——— special types ——— -->

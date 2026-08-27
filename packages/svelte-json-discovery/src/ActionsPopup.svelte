@@ -1,6 +1,7 @@
 <!-- Value actions menu — a standalone take on struct/popup-value-actions.js -->
 <script lang='ts'>
     import type { PopupAction } from './types.js';
+    import { onDestroy } from 'svelte';
     import { portal } from './portal.js';
 
     const { x, y, actions, theme, scheme, onclose }: {
@@ -13,6 +14,10 @@
     } = $props();
 
     let el = $state<HTMLElement>();
+    let pendingIndex = $state<number | null>(null);
+    let runGeneration = 0;
+
+    onDestroy(() => runGeneration++);
 
     // keep the popup inside the viewport
     $effect(() => {
@@ -68,16 +73,21 @@
         target?.focus();
     }
 
-    async function run(item: PopupAction) {
-        if (item.disabled) {
+    async function run(item: PopupAction, index: number) {
+        if (item.disabled || pendingIndex === index) {
             return;
         }
 
+        const generation = ++runGeneration;
+        pendingIndex = index;
         try {
             await item.action();
         }
         finally {
-            onclose();
+            if (generation === runGeneration) {
+                pendingIndex = null;
+                onclose();
+            }
         }
     }
 </script>
@@ -100,15 +110,17 @@
     {#each actions as item, i (i)}
         <div
             class='menu-item'
-            class:disabled={item.disabled}
+            class:disabled={item.disabled || pendingIndex === i}
             class:group-start={item.groupStart}
             role='menuitem'
-            tabindex={item.disabled ? undefined : 0}
-            aria-disabled={item.disabled || undefined}
-            onclick={() => run(item)}
-            onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), run(item))}
+            tabindex={item.disabled || pendingIndex === i ? undefined : 0}
+            aria-disabled={item.disabled || pendingIndex === i || undefined}
+            aria-busy={pendingIndex === i || undefined}
+            onclick={() => run(item, i)}
+            onkeydown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), run(item, i))}
         >
             {item.text}{#if item.notes}<span class='notes'>{item.notes}</span>{/if}
+            {#if pendingIndex === i}<span class='notes' role='status'>Running {item.text}…</span>{/if}
             {#if item.error}<div class='error'>{item.error}</div>{/if}
         </div>
     {/each}

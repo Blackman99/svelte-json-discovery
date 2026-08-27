@@ -1,4 +1,4 @@
-import type { JsonViewerNode, JsonViewerPlugin, JsonViewerRendererProps } from './index.js';
+import type { JsonViewerActionContext, JsonViewerNode, JsonViewerPlugin, JsonViewerPluginError, JsonViewerRendererProps } from './index.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { createRawSnippet } from 'svelte';
@@ -10,6 +10,309 @@ import JsonViewer from './JsonViewer.svelte';
 afterEach(cleanup);
 
 describe('json viewer', () => {
+    it('runs a matched plugin action with pending state and restores focus', async () => {
+        const user = userEvent.setup();
+        let finishAction: (() => void) | undefined;
+        let receivedContext: JsonViewerActionContext | undefined;
+        const plugin: JsonViewerPlugin = {
+            id: 'async-actions',
+            actions: [{
+                id: 'inspect',
+                label: 'Inspect asynchronously',
+                when: node => node.path[0] === 'target',
+                run(context) {
+                    receivedContext = context;
+                    return new Promise<void>(resolve => (finishAction = resolve));
+                },
+            }],
+        };
+
+        render(JsonViewer, {
+            data: { target: 42 },
+            expanded: 1,
+            plugins: [plugin],
+        });
+
+        const node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        const trigger = within(node as HTMLElement).getByRole('button', { name: 'Value actions' });
+        await user.click(trigger);
+        const action = screen.getByRole('menuitem', { name: 'Inspect asynchronously' });
+        await user.click(action);
+
+        expect(action.getAttribute('aria-busy')).toBe('true');
+        expect(action.getAttribute('aria-disabled')).toBe('true');
+        expect(screen.getByRole('status').textContent).toBe('Running Inspect asynchronously…');
+        expect(receivedContext?.node.path).toEqual(['target']);
+        expect(Object.isFrozen(receivedContext?.node)).toBe(true);
+        expect(receivedContext?.signal.aborted).toBe(false);
+
+        finishAction?.();
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+    });
+
+    it('cancels a running plugin action when Escape closes its menu', async () => {
+        const user = userEvent.setup();
+        let actionSignal: AbortSignal | undefined;
+        const plugin: JsonViewerPlugin = {
+            id: 'escape-cancellation',
+            actions: [{
+                id: 'wait',
+                label: 'Wait for cancellation',
+                when: node => node.path[0] === 'target',
+                run({ signal }) {
+                    actionSignal = signal;
+                    return new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
+                },
+            }],
+        };
+
+        render(JsonViewer, { data: { target: true }, expanded: 1, plugins: [plugin] });
+        const node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        const trigger = within(node as HTMLElement).getByRole('button', { name: 'Value actions' });
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Wait for cancellation' }));
+        await user.keyboard('{Escape}');
+
+        expect(actionSignal?.aborted).toBe(true);
+        expect(screen.queryByRole('menu')).toBeNull();
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+    });
+
+    it('cancels running and stale plugin actions on supersession and data replacement', async () => {
+        const user = userEvent.setup();
+        const signals: AbortSignal[] = [];
+        let secondRuns = 0;
+        const plugin: JsonViewerPlugin = {
+            id: 'superseding-actions',
+            actions: [
+                {
+                    id: 'first',
+                    label: 'First action',
+                    when: node => node.path[0] === 'target',
+                    run({ signal }) {
+                        signals.push(signal);
+                        return new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
+                    },
+                },
+                {
+                    id: 'second',
+                    label: 'Second action',
+                    when: node => node.path[0] === 'target',
+                    run() {
+                        secondRuns++;
+                    },
+                },
+            ],
+        };
+        const rendered = render(JsonViewer, {
+            data: { target: 'first data' },
+            expanded: 1,
+            plugins: [plugin],
+        });
+
+        let node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        await user.click(within(node as HTMLElement).getByRole('button', { name: 'Value actions' }));
+        await user.click(screen.getByRole('menuitem', { name: 'First action' }));
+        await user.click(screen.getByRole('menuitem', { name: 'Second action' }));
+        expect(signals[0]?.aborted).toBe(true);
+        expect(secondRuns).toBe(1);
+
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        await user.click(within(node as HTMLElement).getByRole('button', { name: 'Value actions' }));
+        await user.click(screen.getByRole('menuitem', { name: 'First action' }));
+        await rendered.rerender({
+            data: { target: 'replacement data' },
+            expanded: 1,
+            plugins: [plugin],
+        });
+
+        expect(signals[1]?.aborted).toBe(true);
+        expect(screen.queryByRole('menu')).toBeNull();
+    });
+
+    it('does not let a stale popup completion close newly started work', async () => {
+        const user = userEvent.setup();
+        const signals: AbortSignal[] = [];
+        const resolvers: (() => void)[] = [];
+        const plugin: JsonViewerPlugin = {
+            id: 'reopened-actions',
+            actions: [{
+                id: 'wait',
+                label: 'Wait action',
+                when: node => node.path[0] === 'target',
+                run({ signal }) {
+                    signals.push(signal);
+                    return new Promise<void>(resolve => resolvers.push(resolve));
+                },
+            }],
+        };
+        render(JsonViewer, { data: { target: true }, expanded: 1, plugins: [plugin] });
+        const node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        const trigger = within(node as HTMLElement).getByRole('button', { name: 'Value actions' });
+
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Wait action' }));
+        await user.keyboard('{Escape}');
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Wait action' }));
+        resolvers[0]?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(screen.getByRole('menu')).not.toBeNull();
+        expect(signals[1]?.aborted).toBe(false);
+        resolvers[1]?.();
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    });
+
+    it('localizes plugin action failures and suppresses errors after cancellation', async () => {
+        const user = userEvent.setup();
+        const failures: JsonViewerPluginError[] = [];
+        let rejectStale: ((error: Error) => void) | undefined;
+        const plugin: JsonViewerPlugin = {
+            id: 'failing-actions',
+            actions: [
+                {
+                    id: 'fail',
+                    label: 'Fail action',
+                    when: node => node.path[0] === 'target',
+                    run() {
+                        throw new Error('action failed');
+                    },
+                },
+                {
+                    id: 'stale',
+                    label: 'Stale action',
+                    when: node => node.path[0] === 'target',
+                    run() {
+                        return new Promise<void>((_, reject) => (rejectStale = reject));
+                    },
+                },
+            ],
+        };
+        render(JsonViewer, {
+            data: { target: 42 },
+            expanded: 1,
+            plugins: [plugin],
+            theme: 'dark',
+            onPluginError: failure => failures.push(failure),
+        });
+        const node = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        const trigger = within(node as HTMLElement).getByRole('button', { name: 'Value actions' });
+
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Fail action' }));
+        await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+        expect(screen.getByRole('alert').textContent).toBe('Fail action failed: action failed');
+        expect(screen.getByRole('alert').classList.contains('sjd-theme-dark')).toBe(true);
+        expect(failures).toHaveLength(1);
+        expect(failures[0]).toMatchObject({
+            pluginId: 'failing-actions',
+            operation: 'action',
+            operationId: 'fail',
+            node: { path: ['target'] },
+        });
+        expect(failures[0]?.error).toBeInstanceOf(Error);
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Stale action' }));
+        await user.keyboard('{Escape}');
+        rejectStale?.(new Error('late failure'));
+        await Promise.resolve();
+        expect(failures).toHaveLength(1);
+    });
+
+    it('suppresses deferred predicate failures after data replacement or destruction', async () => {
+        const failures: JsonViewerPluginError[] = [];
+        const plugin: JsonViewerPlugin = {
+            id: 'stale-predicate',
+            actions: [{
+                id: 'hostile',
+                label: 'Hostile predicate',
+                when(node) {
+                    if (node.value === 'old') {
+                        throw new Error('old predicate failure');
+                    }
+                    return false;
+                },
+                run() {},
+            }],
+        };
+        const rendered = render(JsonViewer, {
+            data: { target: 'old' },
+            expanded: 1,
+            plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
+        });
+
+        await rendered.rerender({
+            data: { target: 'new' },
+            expanded: 1,
+            plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
+        });
+        await Promise.resolve();
+        expect(failures).toHaveLength(0);
+        expect(screen.queryByRole('alert')).toBeNull();
+
+        await rendered.rerender({
+            data: { target: 'old' },
+            expanded: 1,
+            plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
+        });
+        await waitFor(() => expect(failures).toHaveLength(1));
+        expect(screen.getByRole('alert').textContent).toContain('old predicate failure');
+
+        await rendered.rerender({
+            data: { target: 'old' },
+            expanded: 1,
+            plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
+        });
+        await waitFor(() => expect(failures).toHaveLength(2));
+        rendered.unmount();
+
+        failures.length = 0;
+        const destroyed = render(JsonViewer, {
+            data: { target: 'old' },
+            expanded: 1,
+            plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
+        });
+        destroyed.unmount();
+        await Promise.resolve();
+        expect(failures).toHaveLength(0);
+    });
+
+    it('exposes matched plugin actions on circular reference nodes', async () => {
+        const user = userEvent.setup();
+        const runs: JsonViewerNode[] = [];
+        const data: Record<string, unknown> = {};
+        data.self = data;
+        const plugin: JsonViewerPlugin = {
+            id: 'circular-actions',
+            actions: [{
+                id: 'inspect-circular',
+                label: 'Inspect circular reference',
+                when: node => node.path[0] === 'self',
+                run({ node }) {
+                    runs.push(node);
+                },
+            }],
+        };
+        render(JsonViewer, { data, expanded: 1, plugins: [plugin] });
+        const circularNode = document.querySelector<HTMLElement>('[data-node-label="self"]');
+
+        await user.click(within(circularNode as HTMLElement).getByRole('button', { name: 'Value actions' }));
+        await user.click(screen.getByRole('menuitem', { name: 'Inspect circular reference' }));
+
+        expect(runs).toHaveLength(1);
+        expect(runs[0]?.path).toEqual(['self']);
+    });
+
     it('keeps the original public node shape assignable', () => {
         const legacyNode: JsonViewerNode = { path: [], pointer: '', value: null };
         legacyNode.path = ['updated'];
@@ -173,7 +476,8 @@ describe('json viewer', () => {
         expect(errorNode?.kind).toBe('error');
     });
 
-    it('falls back locally when a renderer predicate or component throws', () => {
+    it('falls back locally when a renderer predicate or component throws', async () => {
+        const failures: JsonViewerPluginError[] = [];
         const plugin: JsonViewerPlugin = {
             id: 'hostile-renderers',
             renderers: [{
@@ -195,11 +499,16 @@ describe('json viewer', () => {
             },
             expanded: 1,
             plugins: [plugin],
+            onPluginError: failure => failures.push(failure),
         });
 
         expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"built in after predicate failure"')).toBeTruthy();
         expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"built in after component failure"')).toBeTruthy();
         expect(screen.getByText((_, node) => node?.classList.contains('string') === true && node.textContent === '"still visible"')).toBeTruthy();
+        await waitFor(() => {
+            expect(failures.some(failure => failure.pluginId === 'hostile-renderers' && failure.operation === 'renderer-predicate')).toBe(true);
+            expect(failures.some(failure => failure.pluginId === 'hostile-renderers' && failure.operation === 'renderer')).toBe(true);
+        });
     });
 
     it('shows an accessible search input only when requested', () => {
@@ -317,6 +626,38 @@ describe('json viewer', () => {
         expect(document.activeElement?.getAttribute('aria-label')).toBe('Value actions');
         await user.keyboard('{Escape}');
         expect(document.activeElement).toBe(root);
+    });
+
+    it('opens and runs plugin actions from the keyboard and returns focus on Escape', async () => {
+        const user = userEvent.setup();
+        const runs: JsonViewerNode[] = [];
+        const plugin: JsonViewerPlugin = {
+            id: 'keyboard-actions',
+            actions: [{
+                id: 'inspect',
+                label: 'Inspect node',
+                when: node => node.path[0] === 'target',
+                run: ({ node }) => {
+                    runs.push(node);
+                },
+            }],
+        };
+        render(JsonViewer, { data: { target: 1 }, expanded: 1, plugins: [plugin] });
+
+        const target = document.querySelector<HTMLElement>('[data-node-label="target"]');
+        target?.focus();
+        await user.keyboard('{F2}');
+        const trigger = within(target as HTMLElement).getByRole('button', { name: 'Value actions' });
+        expect(document.activeElement).toBe(trigger);
+
+        await user.keyboard('{Enter}{End}{Enter}');
+        await waitFor(() => expect(runs).toHaveLength(1));
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
+        expect(runs[0]?.path).toEqual(['target']);
+
+        await user.keyboard('{Enter}{Escape}');
+        expect(screen.queryByRole('menu')).toBeNull();
+        expect(document.activeElement).toBe(trigger);
     });
 
     it('supports the complete tree direction, toggle and typeahead key set', async () => {

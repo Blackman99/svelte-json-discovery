@@ -44,6 +44,8 @@ pnpm add svelte-json-discovery
   `scrollTo`, `select`, `nextMatch`, and `previousMatch` through `bind:this`
 - **Instance-scoped custom renderers** — ordered plugins can replace matching
   nodes with a Svelte Component or Snippet while preserving the built-in fallback
+- **Async plugin actions** — attach node-specific sync or async commands with
+  pending state, cancellation, focus restoration and localized error reporting
 - **Value actions popup (`ƒ`)** — copy as quoted/unquoted/unescaped string,
   copy path (e.g. `stats.issues[0]["key with spaces"]`), copy as JSON
   Pointer (RFC 6901), or copy as JSON (formatted / compact, with byte sizes)
@@ -100,7 +102,7 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 are exported for host integrations. `expanded` remains the initial expansion
 depth when `expandedPaths` is not supplied.
 
-### Custom node renderers
+### Custom renderers and actions
 
 ```svelte
 <script lang='ts'>
@@ -114,17 +116,35 @@ depth when `expandedPaths` is not supplied.
             when: node => node.key === 'status',
             component: StatusRenderer,
         }],
+        actions: [{
+            id: 'inspect-latency',
+            label: 'Inspect latency',
+            when: node => node.key === 'latencyMs',
+            async run({ node, signal }) {
+                const response = await fetch(`/api/latency/${node.value}`, { signal });
+                await response.json();
+            },
+        }],
     }];
 </script>
 
-<JsonViewer data={{ status: 'healthy' }} {plugins} />
+<JsonViewer
+    data={{ status: 'healthy', latencyMs: 84 }}
+    {plugins}
+    onPluginError={failure => console.error(failure)}
+/>
 ```
 
 `JsonViewerNode` is a stable, immutable descriptor containing `path`, `pointer`,
 `value`, `key`, `index`, `depth`, `kind`, `parentPath`, and `jsonCompatible`.
 Renderer props also receive `density` and the public Viewer `controller`.
-Plugin and renderer contracts are **experimental** in this release; registration
-is per Viewer instance, predicates run in order, and the first match wins.
+Action handlers receive the same frozen node descriptor and an `AbortSignal`.
+The Viewer cancels an in-flight action when another action supersedes it, its
+menu closes, the data identity changes, or the component is destroyed. Failures
+remain local and are reported through `onPluginError` with plugin, node and
+operation context. Plugin, renderer and action contracts are **experimental**
+in this release; registration is per Viewer instance, predicates run in order,
+and the first matching renderer wins.
 
 ## Props
 
@@ -152,7 +172,8 @@ is per Viewer instance, predicates run in order, and the first match wins.
 | `onSelectedPathChange` | `(path: JsonPath \| null) => void` | — | Called when selection changes |
 | `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color scheme |
 | `schema` | `object \| null` | `null` | JSON Schema for `data`; documented fields get hover tooltips |
-| `plugins` | `readonly JsonViewerPlugin[]` | `[]` | Experimental ordered, instance-scoped node renderers |
+| `plugins` | `readonly JsonViewerPlugin[]` | `[]` | Experimental instance-scoped node renderers and actions |
+| `onPluginError` | `(failure: JsonViewerPluginError) => void` | — | Reports localized plugin predicate, renderer and action failures |
 
 ## Development
 

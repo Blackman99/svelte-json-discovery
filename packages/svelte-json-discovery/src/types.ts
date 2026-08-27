@@ -63,6 +63,20 @@ export interface JsonViewerRendererProps {
     readonly controller: JsonViewerHandle;
 }
 
+/** @experimental Action contracts may evolve from integration feedback. */
+export interface JsonViewerActionContext {
+    readonly node: JsonViewerNode;
+    readonly signal: AbortSignal;
+}
+
+/** @experimental Action contracts may evolve from integration feedback. */
+export interface JsonViewerAction {
+    readonly id: string;
+    readonly label: string;
+    readonly when: (node: JsonViewerNode) => boolean;
+    readonly run: (context: JsonViewerActionContext) => Promise<void> | void;
+}
+
 /** @experimental Renderer contracts may evolve from integration feedback. */
 export type JsonViewerRenderer = {
     readonly when: (node: JsonViewerNode) => boolean;
@@ -78,6 +92,27 @@ export type JsonViewerRenderer = {
 export interface JsonViewerPlugin {
     readonly id: string;
     readonly renderers?: readonly JsonViewerRenderer[];
+    readonly actions?: readonly JsonViewerAction[];
+}
+
+export interface JsonViewerActionMatch {
+    readonly pluginId: string;
+    readonly action: JsonViewerAction;
+}
+
+export interface JsonViewerRendererMatch {
+    readonly pluginId: string;
+    readonly renderer: JsonViewerRenderer;
+}
+
+export type JsonViewerPluginOperation = 'action' | 'action-predicate' | 'renderer' | 'renderer-predicate';
+
+export interface JsonViewerPluginError {
+    readonly pluginId: string;
+    readonly node: JsonViewerNode;
+    readonly operation: JsonViewerPluginOperation;
+    readonly operationId?: string;
+    readonly error: unknown;
 }
 
 export interface JsonViewerSearchState {
@@ -115,12 +150,20 @@ export interface PopupAction {
     error?: string | false;
     disabled?: boolean;
     groupStart?: boolean;
-    action: () => void;
+    action: () => Promise<void> | void;
 }
 
 export interface JsonViewerApi {
     controller: JsonViewerHandle;
-    resolveRenderer: (node: JsonViewerNode) => JsonViewerRenderer | null;
+    resolveRenderer: (node: JsonViewerNode) => JsonViewerRendererMatch | null;
+    hasPluginActions: (node: JsonViewerNode) => boolean;
+    reportPluginError: (
+        pluginId: string,
+        node: JsonViewerNode,
+        operation: JsonViewerPluginOperation,
+        error: unknown,
+        operationId?: string,
+    ) => void;
     openActions: (anchor: HTMLElement, value: unknown, context: ValueContext) => void;
     openSchemaTip: (anchor: HTMLElement, info: import('./schema.js').SchemaFieldInfo) => void;
     closeSchemaTip: () => void;

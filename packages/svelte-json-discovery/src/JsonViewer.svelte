@@ -1,10 +1,11 @@
 <!-- JSON viewer — Svelte port of the `struct` view from discoveryjs/discovery -->
 <script lang='ts'>
     import type { SchemaFieldInfo } from './schema.js';
-    import type { JsonPath, JsonViewerHandle, JsonViewerNode, JsonViewerPlugin, JsonViewerRenderer, JsonViewerSearchState, PopupAction, StructOptions, ValueContext } from './types.js';
-    import { setContext, tick } from 'svelte';
+    import type { JsonPath, JsonViewerActionMatch, JsonViewerHandle, JsonViewerNode, JsonViewerPlugin, JsonViewerPluginError, JsonViewerPluginOperation, JsonViewerRendererMatch, JsonViewerSearchState, PopupAction, StructOptions, ValueContext } from './types.js';
+    import { onDestroy, setContext, tick } from 'svelte';
     import ActionsPopup from './ActionsPopup.svelte';
     import { safeErrorMessage } from './collection.js';
+    import { createJsonViewerNode } from './node.js';
     import SchemaTooltip from './SchemaTooltip.svelte';
     import { searchJson } from './search.js';
     import { intOption, isValueExpandable, listLimit } from './struct-helpers.js';
@@ -60,6 +61,8 @@
         schema?: Record<string, unknown> | null;
         /** Ordered, instance-scoped custom renderers */
         plugins?: readonly JsonViewerPlugin[];
+        /** Reports localized renderer and action failures */
+        onPluginError?: (failure: JsonViewerPluginError) => void;
     };
 
     const {
@@ -86,6 +89,7 @@
         theme = 'auto',
         schema = null,
         plugins = [],
+        onPluginError,
     }: Props = $props();
 
     const expandDepth = $derived(
@@ -116,8 +120,15 @@
     let typeaheadTimer: ReturnType<typeof setTimeout> | undefined;
     // svelte-ignore state_referenced_locally
     let previousData = data;
+    // svelte-ignore state_referenced_locally
+    let previousPluginData = data;
     let popup = $state<{ x: number; y: number; actions: PopupAction[]; anchor: HTMLElement } | null>(null);
     let schemaTip = $state<{ x: number; y: number; info: SchemaFieldInfo } | null>(null);
+    let activePluginAction: { controller: AbortController } | null = null;
+    let pluginStatus = $state<string | null>(null);
+    const reportedPredicateFailures: string[] = [];
+    let pluginLifecycleGeneration = 0;
+    let pluginDisposed = false;
 
     const controller: JsonViewerHandle = Object.freeze({
         expand,
@@ -132,6 +143,8 @@
     setContext(CONTEXT_KEY, {
         controller,
         resolveRenderer,
+        hasPluginActions,
+        reportPluginError,
         openActions,
         openSchemaTip,
         closeSchemaTip,
@@ -146,23 +159,113 @@
         setFocused,
     });
 
-    function resolveRenderer(node: JsonViewerNode): JsonViewerRenderer | null {
+    function resolveRenderer(node: JsonViewerNode): JsonViewerRendererMatch | null {
         for (const plugin of plugins) {
             for (const renderer of plugin.renderers ?? []) {
                 try {
                     if (renderer.when(node)) {
-                        return renderer;
+                        return { pluginId: plugin.id, renderer };
                     }
                 }
-                catch {
-                // A hostile predicate is local to this renderer. Continue to
-                // the next registered renderer and preserve the built-in fallback.
+                catch (error) {
+                    // Predicate evaluation happens inside a derived value. Defer the
+                    // observable report so renderer resolution stays side-effect free.
+                    reportPredicateError(plugin.id, node, 'renderer-predicate', error);
                 }
             }
         }
 
         return null;
     }
+
+    function pluginActions(node: JsonViewerNode): JsonViewerActionMatch[] {
+        const matches: JsonViewerActionMatch[] = [];
+
+        for (const plugin of plugins) {
+            for (const action of plugin.actions ?? []) {
+                try {
+                    if (action.when(node)) {
+                        matches.push({ pluginId: plugin.id, action });
+                    }
+                }
+                catch (error) {
+                    reportPredicateError(plugin.id, node, 'action-predicate', error, action.id);
+                }
+            }
+        }
+
+        return matches;
+    }
+
+    function hasPluginActions(node: JsonViewerNode): boolean {
+        return pluginActions(node).length > 0;
+    }
+
+    async function runPluginAction(match: JsonViewerActionMatch, node: JsonViewerNode): Promise<void> {
+        activePluginAction?.controller.abort();
+        const execution = { controller: new AbortController() };
+        activePluginAction = execution;
+        pluginStatus = null;
+
+        try {
+            await match.action.run({ node, signal: execution.controller.signal });
+        }
+        catch (error) {
+            if (activePluginAction === execution && !execution.controller.signal.aborted) {
+                reportPluginError(match.pluginId, node, 'action', error, match.action.id);
+                pluginStatus = `${match.action.label} failed: ${safeErrorMessage(error)}`;
+            }
+        }
+        finally {
+            if (activePluginAction === execution) {
+                activePluginAction = null;
+            }
+        }
+    }
+
+    function cancelPluginAction() {
+        activePluginAction?.controller.abort();
+        activePluginAction = null;
+    }
+
+    function reportPluginError(
+        pluginId: string,
+        node: JsonViewerNode,
+        operation: JsonViewerPluginOperation,
+        error: unknown,
+        operationId?: string,
+    ) {
+        onPluginError?.(Object.freeze({ pluginId, node, operation, operationId, error }));
+    }
+
+    function reportPredicateError(
+        pluginId: string,
+        node: JsonViewerNode,
+        operation: 'action-predicate' | 'renderer-predicate',
+        error: unknown,
+        operationId?: string,
+    ) {
+        const key = `${pluginId}:${operation}:${operationId ?? ''}:${pathKey(node.path)}`;
+        if (reportedPredicateFailures.includes(key)) {
+            return;
+        }
+        reportedPredicateFailures.push(key);
+        const generation = pluginLifecycleGeneration;
+        const source = data;
+        queueMicrotask(() => {
+            if (pluginDisposed || generation !== pluginLifecycleGeneration || source !== data) {
+                return;
+            }
+            reportPluginError(pluginId, node, operation, error, operationId);
+            pluginStatus = `${operation === 'renderer-predicate' ? 'Renderer' : 'Action'} predicate failed: ${safeErrorMessage(error)}`;
+        });
+    }
+
+    onDestroy(() => {
+        pluginDisposed = true;
+        pluginLifecycleGeneration++;
+        cancelPluginAction();
+    });
 
     const effectiveSearch = $derived<RegExp | string | null>(
         search === undefined
@@ -224,9 +327,20 @@
         onSearchStateChange?.(searchState);
     });
 
+    $effect.pre(() => {
+        if (data !== previousPluginData) {
+            previousPluginData = data;
+            pluginLifecycleGeneration++;
+            reportedPredicateFailures.length = 0;
+        }
+    });
+
     $effect(() => {
         if (data !== previousData) {
             const hadInternalSelection = internalSelectedPath !== null;
+            cancelPluginAction();
+            popup = null;
+            pluginStatus = null;
             previousData = data;
             internalExpansion = {};
             internalSelectedPath = null;
@@ -641,6 +755,7 @@
 
     async function closeActions() {
         const anchor = popup?.anchor;
+        cancelPluginAction();
         popup = null;
         await tick();
         anchor?.focus();
@@ -683,6 +798,7 @@
 
     function buildActions(value: unknown, context: ValueContext): PopupAction[] {
         const actions: PopupAction[] = [];
+        const node = createJsonViewerNode(value, context);
         const builtPath = buildPath(context);
         const path = pathToQuery(builtPath);
 
@@ -701,6 +817,7 @@
                 { text: 'Copy as unquoted string', action: () => copyText(JSON.stringify(value).slice(1, -1)) },
                 { text: 'Copy a value (unescaped)', action: () => copyText(value) },
             );
+            appendPluginActions(actions, node);
             return actions;
         }
 
@@ -748,7 +865,19 @@
             action: () => copyText(compactStr ?? ''),
         });
 
+        appendPluginActions(actions, node);
+
         return actions;
+    }
+
+    function appendPluginActions(actions: PopupAction[], node: JsonViewerNode) {
+        for (const match of pluginActions(node)) {
+            actions.push({
+                groupStart: actions.length > 0,
+                text: match.action.label,
+                action: () => runPluginAction(match, node),
+            });
+        }
     }
 
     function isJsonCompatibleRoot(value: unknown): boolean {
@@ -773,6 +902,7 @@
     }
 </script>
 
+{#if pluginStatus}<div class='sjd-plugin-status sjd-theme-{themeName}' style:color-scheme={scheme} role='alert'>{pluginStatus}</div>{/if}
 {#if showSearch}
     <div class='sjd-search' role='search'>
         <input

@@ -14,7 +14,8 @@
 
 .view-struct,
 .struct-actions-popup,
-.struct-schema-tip {
+.struct-schema-tip,
+.sjd-plugin-status {
     /* light palette (default) */
     --sjd-app-bg: var(--discovery-background-color, #ffffff);
     --sjd-fmt-color: var(--discovery-fmt-color, #666);
@@ -47,7 +48,8 @@
 /* dark palette — keep in sync with the @media block below */
 .view-struct.sjd-theme-dark,
 .struct-actions-popup.sjd-theme-dark,
-.struct-schema-tip.sjd-theme-dark {
+.struct-schema-tip.sjd-theme-dark,
+.sjd-plugin-status.sjd-theme-dark {
     --sjd-app-bg: var(--discovery-background-color, #242424);
     --sjd-fmt-color: var(--discovery-fmt-color, #999);
     --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
@@ -76,7 +78,8 @@
 @media (prefers-color-scheme: dark) {
     .view-struct.sjd-theme-auto,
     .struct-actions-popup.sjd-theme-auto,
-    .struct-schema-tip.sjd-theme-auto {
+    .struct-schema-tip.sjd-theme-auto,
+    .sjd-plugin-status.sjd-theme-auto {
         --sjd-app-bg: var(--discovery-background-color, #242424);
         --sjd-fmt-color: var(--discovery-fmt-color, #999);
         --sjd-fmt-hover-color: var(--discovery-fmt-hover-color, #aaa);
@@ -456,6 +459,15 @@
 .struct-actions-popup .menu-item .error {
     font-size: 11px;
     color: var(--sjd-popup-error-color);
+}
+
+.sjd-plugin-status {
+    margin: 0 0 6px;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--sjd-popup-error-color) 45%, transparent);
+    border-radius: 4px;
+    color: var(--sjd-popup-error-color);
+    font-size: 12px;
 }
 
 /* JSON Schema field documentation tooltip — portaled to document.body,

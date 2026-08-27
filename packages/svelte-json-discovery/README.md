@@ -256,6 +256,32 @@ key remains in `details`; unavailable targets remain local Inspector diagnostics
 `./validation/zod` is isolated from both the main package entry and the generic
 `./validation` entry.
 
+The optional Valibot adapter consumes a parser created by the host application,
+so Valibot also stays outside the package runtime graph:
+
+```svelte
+<script lang='ts'>
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+    import { createValibotValidator } from 'svelte-json-discovery/validation/valibot';
+    import * as v from 'valibot';
+
+    const schema = v.object({
+        name: v.pipe(v.string(), v.nonEmpty()),
+        roles: v.array(v.string()),
+    });
+    const validate = createValibotValidator(v.safeParserAsync(schema));
+</script>
+
+<JsonInspector {data} {validate} />
+```
+
+Valibot object keys and array indices become canonical paths and RFC 6901
+Pointers. The issue `type`, message, source, default error severity and original
+issue in `details` are preserved in parser order. Missing targets remain local
+navigation diagnostics; Map, Set and other non-standard path items use a
+bounded collision-free fallback with a `null` Pointer. `./validation/valibot`
+is isolated from the main package and generic `./validation` entries.
+
 ### Search and programmatic control
 
 ```svelte

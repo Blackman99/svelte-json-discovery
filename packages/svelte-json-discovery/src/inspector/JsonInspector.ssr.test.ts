@@ -35,4 +35,12 @@ describe('json inspector package boundary', () => {
         expect('dependencies' in packageJson && packageJson.dependencies).toBeFalsy();
         expect(packageJson.devDependencies.zod).toBeTruthy();
     });
+
+    it('keeps the Valibot adapter in its own optional entry graph', () => {
+        expect(packageJson.exports['./validation/valibot']).toBeTruthy();
+        expect(mainEntry).not.toHaveProperty('createValibotValidator');
+        expect(validationEntry).not.toHaveProperty('createValibotValidator');
+        expect('dependencies' in packageJson && packageJson.dependencies).toBeFalsy();
+        expect(packageJson.devDependencies.valibot).toBeTruthy();
+    });
 });

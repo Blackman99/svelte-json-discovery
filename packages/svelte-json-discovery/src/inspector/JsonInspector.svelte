@@ -40,6 +40,9 @@
         selectedPath,
         onSelectedPathChange,
         maxRawBytes = DEFAULT_MAX_RAW_BYTES,
+        tableColumns,
+        tableSort,
+        onTableSortChange,
         ...viewerProps
     }: JsonInspectorProps = $props();
 
@@ -438,13 +441,16 @@
             hidden={activeView !== 'table'}
         >
             <TableView
+                columns={tableColumns}
                 currentSearchPath={searchState.currentPath}
                 model={tableModel}
                 onSelect={updateSelectedPath}
+                onSortChange={onTableSortChange}
                 onWindowChange={updateTableWindow}
                 options={tableOptions}
                 selectedPath={sharedSelectedPath}
                 snapshot={tableSnapshot}
+                sort={tableSort}
                 theme={inspectorTheme}
             />
         </div>

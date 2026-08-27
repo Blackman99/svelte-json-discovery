@@ -1,8 +1,11 @@
 import type { JsonViewerSearchState } from '../types.js';
-import type { JsonInspectorHandle, JsonInspectorView } from './index.js';
+import type { JsonInspectorHandle, JsonInspectorTableColumn, JsonInspectorTableSort, JsonInspectorView } from './index.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
+import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import TableCellRenderer from '../../tests/fixtures/TableCellRenderer.svelte';
+import ThrowingTableCellRenderer from '../../tests/fixtures/ThrowingTableCellRenderer.svelte';
 import { JsonInspector } from './index.js';
 
 afterEach(cleanup);
@@ -416,6 +419,178 @@ describe('json inspector tree shell', () => {
         expect(profile.getAttribute('data-json-path')).toBe('[0,"profile"]');
         expect(profile.getAttribute('data-node-kind')).toBe('object');
         expect(profile.getAttribute('data-json-pointer')).toBe('/0/profile');
+    });
+
+    it('renders controlled path, accessor, hidden and custom columns', async () => {
+        const user = userEvent.setup();
+        const snippet = createRawSnippet<[import('./index.js').JsonInspectorTableCellRendererProps]>(getProps => ({
+            render: () => `<span data-testid="snippet-table-cell">${getProps().column.id}:${String(getProps().value)}</span>`,
+        }));
+        const columns: JsonInspectorTableColumn[] = [
+            { id: 'person', title: 'Person', path: ['profile', 'name'], sortable: true },
+            { id: 'score', title: 'Score', accessor: row => Number(row.score) * 2, renderer: { component: TableCellRenderer } },
+            { id: 'tag', title: 'Tag', accessor: row => row.tag, renderer: { snippet } },
+            { id: 'secret', title: 'Secret', path: ['secret'], visible: false },
+            { id: 'broken', title: 'Broken', accessor: () => { throw new Error('accessor blocked'); } },
+        ];
+        render(JsonInspector, {
+            data: [{ profile: { name: 'Ada' }, score: 4, tag: 'math', secret: true }],
+            tableColumns: columns,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const table = screen.getByRole('table', { name: 'JSON table' });
+
+        expect(within(table).getAllByRole('columnheader').map(header => header.textContent)).toEqual(['Row', 'Person', 'Score', 'Tag', 'Broken']);
+        expect(within(table).queryByText('Secret')).toBeNull();
+        const person = screen.getByRole('button', { name: 'Select cell /0/profile/name' });
+        expect(person.textContent).toContain('Ada');
+        await user.click(person);
+        expect(person.getAttribute('aria-pressed')).toBe('true');
+        expect(screen.getByTestId('custom-table-cell').textContent).toBe('score:0:virtual:8');
+        await user.click(screen.getByRole('button', { name: 'Select custom score' }));
+        expect(document.querySelector('.sjd-inspector')?.getAttribute('data-active-path')).toBe('[0]');
+        expect(screen.getByRole('button', { name: 'Select custom score' }).getAttribute('aria-pressed')).toBe('true');
+        expect(table.querySelector('button button')).toBeNull();
+        expect(screen.getByTestId('snippet-table-cell').textContent).toBe('tag:math');
+        expect(screen.getByTestId('custom-table-cell').closest('[data-json-path]')?.getAttribute('data-json-pointer')).toBeNull();
+        expect(screen.getByRole('button', { name: 'Select derived cell broken for row 0' }).textContent).toBe('[Thrown: accessor blocked]');
+    });
+
+    it('falls back to compact cells when custom component or snippet renderers throw', async () => {
+        const user = userEvent.setup();
+        const throwingSnippet = createRawSnippet<[import('./index.js').JsonInspectorTableCellRendererProps]>(() => ({
+            render: () => { throw new Error('snippet renderer failed'); },
+        }));
+        const data = [{ component: 7, snippet: 8, failRenderer: true }];
+        const columns: JsonInspectorTableColumn[] = [
+            { id: 'component', path: ['component'], renderer: { component: ThrowingTableCellRenderer } },
+            { id: 'snippet', path: ['snippet'], renderer: { snippet: throwingSnippet } },
+        ];
+        const rendered = render(JsonInspector, {
+            data,
+            tableColumns: columns,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        expect(screen.getByRole('table', { name: 'JSON table' })).not.toBeNull();
+        expect(screen.getByRole('button', { name: 'Select cell /0/component' }).textContent).toBe('7');
+        expect(screen.getByRole('button', { name: 'Select cell /0/snippet' }).textContent).toBe('8');
+        const table = screen.getByRole('table', { name: 'JSON table' });
+        expect(table.querySelectorAll('[data-json-path="[0,\\"component\\"]"]')).toHaveLength(1);
+        expect(table.querySelectorAll('[data-json-path="[0,\\"snippet\\"]"]')).toHaveLength(1);
+
+        await rendered.rerender({
+            data: [{ component: 7, snippet: 8, failRenderer: false }],
+            tableColumns: columns,
+            views: ['tree', 'table'],
+        });
+        await waitFor(() => expect(screen.getByTestId('recovered-table-cell').textContent).toBe('7'));
+        expect(screen.queryByRole('button', { name: 'Select cell /0/component' })).toBeNull();
+    });
+
+    it('omits Pointer metadata when a controlled path enters a non-JSON container', async () => {
+        const user = userEvent.setup();
+        const meta = Object.assign(new Map(), { label: 'mapped' });
+        render(JsonInspector, {
+            data: [{ meta }],
+            tableColumns: [{ id: 'label', path: ['meta', 'label'] }],
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        const cell = document.querySelector<HTMLElement>('[data-json-path="[0,\\"meta\\",\\"label\\"]"]');
+        expect(cell?.getAttribute('data-json-pointer')).toBeNull();
+        expect(cell?.textContent).toBe('"mapped"');
+    });
+
+    it('sorts only the loaded window locally and preserves source row paths', async () => {
+        const user = userEvent.setup();
+        let rowReads = 0;
+        const target: unknown[] = [];
+        target.length = 1_000_000;
+        const scores = [3, 1, 2];
+        const data = new Proxy(target, {
+            getOwnPropertyDescriptor(array, key) {
+                if (typeof key === 'string' && /^\d+$/.test(key)) {
+                    rowReads++;
+                    return { configurable: true, enumerable: true, value: { score: scores[Number(key)] ?? 100 }, writable: true };
+                }
+                return Reflect.getOwnPropertyDescriptor(array, key);
+            },
+        });
+        render(JsonInspector, {
+            data,
+            expanded: 0,
+            limit: 2,
+            tableColumns: [{ id: 'score', title: 'Rank', path: ['score'], sortable: true }],
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const sort = screen.getByRole('button', { name: 'Sort Rank ascending' });
+        sort.focus();
+        await user.keyboard('{Enter}');
+
+        expect(sort.parentElement?.getAttribute('aria-sort')).toBe('ascending');
+        expect(screen.getByRole('status', { name: 'Table ordering scope' }).textContent).toBe('Ordering applies to the current loaded window.');
+        expect(within(screen.getByRole('table', { name: 'JSON table' })).getAllByRole('rowheader').map(header => header.textContent)).toEqual(['1', '0']);
+        expect(rowReads).toBe(2);
+    });
+
+    it('requests controlled full-data sorting without reordering or eager reads', async () => {
+        const user = userEvent.setup();
+        const changes: (JsonInspectorTableSort | null)[] = [];
+        let rowReads = 0;
+        const target: unknown[] = [];
+        target.length = 1_000_000;
+        const data = new Proxy(target, {
+            getOwnPropertyDescriptor(array, key) {
+                if (typeof key === 'string' && /^\d+$/.test(key)) {
+                    rowReads++;
+                    return { configurable: true, enumerable: true, value: { score: key === '0' ? 3 : 1 }, writable: true };
+                }
+                return Reflect.getOwnPropertyDescriptor(array, key);
+            },
+        });
+        render(JsonInspector, {
+            data,
+            expanded: 0,
+            limit: 2,
+            tableColumns: [{ id: 'score', path: ['score'], sortable: true }],
+            tableSort: { columnId: 'score', direction: 'ascending' },
+            onTableSortChange: sort => changes.push(sort),
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const table = screen.getByRole('table', { name: 'JSON table' });
+
+        expect(within(table).getAllByRole('rowheader').map(header => header.textContent)).toEqual(['0', '1']);
+        expect(screen.getByRole('status', { name: 'Table ordering scope' }).textContent).toBe('Ordering applies to full data and is controlled by the host.');
+        await user.click(screen.getByRole('button', { name: 'Sort score descending' }));
+        expect(changes).toEqual([{ columnId: 'score', direction: 'descending' }]);
+        expect(rowReads).toBe(2);
+    });
+
+    it('retains valid selection and active path when controlled columns change', async () => {
+        const selectedPath = [0, 'profile', 'name'] as const;
+        const rendered = render(JsonInspector, {
+            data: [{ profile: { name: 'Ada' }, id: 1 }],
+            expanded: 3,
+            selectedPath,
+            tableColumns: [{ id: 'person', path: ['profile', 'name'] }],
+            views: ['tree', 'table'],
+        });
+        await rendered.rerender({
+            data: [{ profile: { name: 'Ada' }, id: 1 }],
+            expanded: 3,
+            selectedPath,
+            tableColumns: [{ id: 'id', path: ['id'] }, { id: 'person', path: ['profile', 'name'], visible: false }],
+            views: ['tree', 'table'],
+        });
+
+        expect(document.querySelector('.sjd-inspector')?.getAttribute('data-active-path')).toBe('[0,"profile","name"]');
+        expect(document.querySelector('[data-json-path="[0,\\"profile\\",\\"name\\"]"]')?.getAttribute('aria-selected')).toBe('true');
     });
 
     it('synchronizes canonical row and cell selection between Table and Tree', async () => {

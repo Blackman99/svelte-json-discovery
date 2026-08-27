@@ -1,5 +1,6 @@
 <script lang='ts'>
     import type { JsonViewerPlugin } from 'svelte-json-discovery';
+    import type { JsonInspectorTableColumn } from 'svelte-json-discovery/inspector';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
     import { actionsDemo, bigArray, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
@@ -11,6 +12,12 @@
 
     const repo = 'https://github.com/Blackman99/svelte-json-discovery';
     const t = $derived(theme.current);
+    const inspectorColumns: JsonInspectorTableColumn[] = [
+        { id: 'id', title: 'ID', path: ['id'], sortable: true },
+        { id: 'name', title: 'Person', path: ['name'], sortable: true },
+        { id: 'role', title: 'Role', path: ['role'], sortable: true },
+        { id: 'active', title: 'Active', accessor: row => row.profile && typeof row.profile === 'object' ? Reflect.get(row.profile, 'active') : undefined },
+    ];
 
     const navItems: [string, string][] = [
         ['install', 'Install'],
@@ -134,10 +141,19 @@
 <JsonViewer {data} />`;
 
     const inspectorCode = `<script lang="ts">
-  import type { JsonInspectorView } from 'svelte-json-discovery/inspector';
+  import type {
+    JsonInspectorTableColumn,
+    JsonInspectorView
+  } from 'svelte-json-discovery/inspector';
   import { JsonInspector } from 'svelte-json-discovery/inspector';
 
   let view = $state<JsonInspectorView>('tree');
+  const tableColumns: JsonInspectorTableColumn[] = [
+    { id: 'id', title: 'ID', path: ['id'], sortable: true },
+    { id: 'name', title: 'Person', path: ['name'], sortable: true },
+    { id: 'role', title: 'Role', path: ['role'], sortable: true },
+    { id: 'active', title: 'Active', accessor: row => row.profile.active }
+  ];
   const rows = [
     { id: 1, name: 'Ada', profile: { active: true } },
     { id: 2, name: 'Grace', profile: { active: false } }
@@ -148,6 +164,7 @@
   data={rows}
   {view}
   onViewChange={next => view = next}
+  {tableColumns}
   limit={3}
   maxRawBytes={12 * 1024 * 1024}
   showSearch
@@ -330,11 +347,11 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, asynchronous strict Raw and an automatic object-array Table.'
+            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, asynchronous strict Raw and a configurable object-array Table.'
             code={inspectorCode}
-            note='Table unions keys from the three loaded rows, renders nested profile values compactly, and reads the next batch only when Show more is used. Diff remains visibly unavailable.'
+            note='Table uses controlled columns here. Activate ID, Person or Role to sort only the three loaded rows; the scope label makes that boundary explicit. Show more reads the next batch. Supplying tableSort delegates full-data ordering to the host.'
         >
-            <JsonInspector data={inspectorRows} expanded={1} limit={3} showSearch theme={t} />
+            <JsonInspector data={inspectorRows} expanded={1} limit={3} showSearch tableColumns={inspectorColumns} theme={t} />
         </Example>
 
         <!-- ——— expand depth ——— -->

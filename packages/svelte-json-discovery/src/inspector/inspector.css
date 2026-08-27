@@ -125,6 +125,16 @@
     font: 12px/1.45 var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 
+.sjd-table-ordering {
+    font-size: 11px;
+    opacity: 0.68;
+}
+
+.sjd-table-view thead button {
+    width: 100%;
+    font-weight: inherit;
+}
+
 .sjd-table-view th,
 .sjd-table-view td {
     max-width: 320px;

@@ -52,8 +52,9 @@ pnpm add svelte-json-discovery
   from `svelte-json-discovery/inspector` without adding it to the main entry graph
 - 📄 **Safe asynchronous Raw view** — cooperatively format and copy only complete
   JSON-compatible values, with path diagnostics, cancellation and a byte cap
-- 📊 **Automatic object-array Table** — union columns from the loaded row window,
-  compact nested cells, shared paths and bounded Show more rendering
+- 📊 **Configurable object-array Table** — automatic or controlled columns,
+  compact/custom cells, shared paths, bounded Show more rendering and explicit
+  current-window vs host-controlled full-data sorting
 - 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
   formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants

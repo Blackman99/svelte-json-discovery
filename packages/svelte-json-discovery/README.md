@@ -117,8 +117,44 @@ that window; nested values use the existing compact renderer rather than being
 flattened. Row and cell selection use the same `JsonPath` state as Tree, and
 search matches retain their path and node metadata in cells. The initial batch
 uses `limit` (50 by default); Show more reads only the next batch and keeps both
-data access and DOM growth bounded. Controlled columns, sorting and export are
-introduced by the advanced Table API separately.
+data access and DOM growth bounded.
+
+`tableColumns` controls titles, row-relative paths or accessors, custom
+component/snippet renderers, visibility and sortable headers. Without it,
+automatic columns remain the default. Header activation sorts only the loaded
+window. Supplying `tableSort` switches to host-controlled full-data ordering:
+the Inspector reports the next state through `onTableSortChange` but never
+eagerly reads or locally reorders hidden rows.
+
+```svelte
+<script lang='ts'>
+    import type {
+        JsonInspectorTableColumn,
+        JsonInspectorTableSort,
+    } from 'svelte-json-discovery/inspector';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+    const tableColumns: JsonInspectorTableColumn[] = [
+        { id: 'name', title: 'Person', path: ['profile', 'name'], sortable: true },
+        { id: 'score', accessor: row => Number(row.score) * 100, sortable: true },
+        { id: 'internal', path: ['internal'], visible: false },
+    ];
+    let tableSort = $state<JsonInspectorTableSort | null>(null);
+</script>
+
+<JsonInspector
+    data={rows}
+    {tableColumns}
+    {tableSort}
+    onTableSortChange={next => tableSort = next}
+/>
+```
+
+Path columns retain their canonical JSON Pointer. Accessor columns are derived:
+their renderer receives a frozen node without Pointer metadata, and selecting
+one selects its source row. Custom renderers own their interactive markup and
+call the supplied `select()` action; renderer or accessor failures fall back to
+local compact/error cells without taking down the Inspector.
 
 ### Search and programmatic control
 

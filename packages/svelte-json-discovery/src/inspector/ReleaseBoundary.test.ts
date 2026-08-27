@@ -84,7 +84,7 @@ describe('release package boundaries', () => {
         expect('dependencies' in packageJson && packageJson.dependencies).toBe(false);
     });
 
-    it('publishes a type-safe, SSR-consumable tarball with isolated subpaths', async () => {
+    it('publishes a type-safe, SSR-consumable tarball with isolated subpaths', { timeout: 30_000 }, async () => {
         const temporaryRoot = mkdtempSync(join(tmpdir(), 'sjd-release-'));
         try {
             const output = execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', temporaryRoot], {

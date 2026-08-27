@@ -140,7 +140,13 @@
   let view = $state<JsonInspectorView>('tree');
 <\/script>
 
-<JsonInspector data={data} {view} onViewChange={next => view = next} showSearch />`;
+<JsonInspector
+  data={data}
+  {view}
+  onViewChange={next => view = next}
+  maxRawBytes={12 * 1024 * 1024}
+  showSearch
+/>`;
 
     const expandCode = `<!-- open three levels deep -->
 <JsonViewer data={config} expanded={3} />
@@ -319,9 +325,9 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath switches between the existing Tree and a formatted strict Raw view. Search, selection, active match, controller behavior and per-view scroll stay canonical across the shell.'
+            intro='The optional Inspector subpath switches between the existing Tree and an asynchronously generated strict Raw view. Search, selection, active match, controller behavior and per-view scroll stay canonical across the shell.'
             code={inspectorCode}
-            note='Raw copy is enabled only for complete JSON-compatible data; special JavaScript values disable it instead of producing pseudo-JSON. Table and Diff remain visibly unavailable. Restrict the toolbar with <code>views</code>.'
+            note='Raw copy is enabled only for complete JSON-compatible data. Unsupported values produce path diagnostics that reveal the affected Tree node; generation is cancellable and capped at 12 MB by default. Table and Diff remain visibly unavailable.'
         >
             <JsonInspector data={quickStart} expanded={1} showSearch theme={t} />
         </Example>

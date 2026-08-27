@@ -35,6 +35,30 @@
     opacity: 0.75;
 }
 
+.sjd-raw-diagnostics {
+    display: grid;
+    gap: 4px;
+}
+
+.sjd-raw-diagnostics button {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: inherit;
+    background: color-mix(in srgb, currentColor 4%, transparent);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sjd-raw-diagnostics code {
+    font-family: var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 12px;
+}
+
 .sjd-visually-hidden {
     position: absolute;
     width: 1px;

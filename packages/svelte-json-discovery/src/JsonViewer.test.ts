@@ -839,6 +839,21 @@ describe('json viewer', () => {
         expect(document.querySelector('[data-json-path="[]"]')?.getAttribute('aria-expanded')).toBe('false');
     });
 
+    it('ignores invalid focus paths without expanding ancestors', async () => {
+        const expansionChanges: number[] = [];
+        const rendered = render(JsonViewer, {
+            data: { branch: [1] },
+            expanded: 0,
+            onExpandedPathsChange: paths => expansionChanges.push(paths.length),
+        });
+
+        expect(await rendered.component.focus(['branch', 'missing'])).toBe(false);
+        expect(await rendered.component.focus(['branch', 0.5])).toBe(false);
+        expect(await rendered.component.focus(['branch', Number.NaN])).toBe(false);
+        expect(document.querySelector('[data-json-path="[]"]')?.getAttribute('aria-expanded')).toBe('false');
+        expect(expansionChanges).toEqual([]);
+    });
+
     it('keeps controlled selection unchanged until the host supplies the new path', async () => {
         const data = { first: 1, second: 2 };
         const changes: (readonly (string | number)[] | null)[] = [];
@@ -970,6 +985,24 @@ describe('json viewer', () => {
         expect(screen.getByText('[Thrown: getter blocked]')).toBeTruthy();
         expect(screen.getByText('[Thrown: proxy blocked]')).toBeTruthy();
         expect(screen.getByText('[Thrown: array length blocked]')).toBeTruthy();
+    });
+
+    it('focuses a safely rendered getter error node without resolving its value', async () => {
+        const throwingGetter: Record<string, unknown> = {};
+        let getterReads = 0;
+        Object.defineProperty(throwingGetter, 'broken', {
+            enumerable: true,
+            get() {
+                getterReads++;
+                throw new Error('getter blocked');
+            },
+        });
+        const rendered = render(JsonViewer, { data: throwingGetter, expanded: 1 });
+        const readsBeforeFocus = getterReads;
+
+        expect(await rendered.component.focus(['broken'])).toBe(true);
+        expect(getterReads - readsBeforeFocus).toBe(0);
+        expect(document.activeElement?.getAttribute('data-node-label')).toBe('broken');
     });
 
     it('can match a getter key even when reading its value throws', async () => {

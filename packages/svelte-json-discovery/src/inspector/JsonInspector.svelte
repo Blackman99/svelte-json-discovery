@@ -1,9 +1,11 @@
 <script lang='ts'>
     import type { JsonPath, JsonViewerHandle, JsonViewerSearchState } from '../types.js';
-    import type { JsonInspectorProps, JsonInspectorView } from './types.js';
+    import type { StrictJsonResult } from './strict-json.js';
+    import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic } from './types.js';
+    import { tick } from 'svelte';
     import JsonViewer from '../JsonViewer.svelte';
     import RawView from './RawView.svelte';
-    import { serializeStrictJson } from './strict-json.js';
+    import { DEFAULT_MAX_RAW_BYTES, generateStrictJson } from './strict-json.js';
     import './inspector.css';
 
     type ViewRegistration = {
@@ -32,6 +34,7 @@
         onSearchStateChange,
         selectedPath,
         onSelectedPathChange,
+        maxRawBytes = DEFAULT_MAX_RAW_BYTES,
         ...viewerProps
     }: JsonInspectorProps = $props();
 
@@ -51,18 +54,73 @@
         currentPath: null,
     });
     let viewStatus = $state('');
+    let rawGeneration = 0;
+    let rawRestart = $state(0);
+    let rawController: AbortController | undefined;
+    let rawCancellationAnnounced = $state(false);
+    let rawResult = $state<StrictJsonResult | { status: 'pending'; text: null; diagnostics: readonly []; bytes: 0; reason: string }>({
+        status: 'pending',
+        text: null,
+        diagnostics: [],
+        bytes: 0,
+        reason: 'Raw generation is in progress.',
+    });
     // svelte-ignore state_referenced_locally
     let previousData = data;
+    // svelte-ignore state_referenced_locally
+    let previousControlledView = view;
 
-    const rawResult = $derived(serializeStrictJson(data));
     const registeredViews = $derived(resolveViews(views, rawResult.reason));
     const activeView = $derived(resolveActiveView(view, internalView, registeredViews));
     const sharedSearch = $derived(search === undefined ? internalSearch : search);
     const sharedSelectedPath = $derived(selectedPath === undefined ? internalSelectedPath : selectedPath);
     const activePath = $derived(searchState.currentPath ?? sharedSelectedPath);
+    const hasRawView = $derived(views.includes('raw'));
+    const rawStatus = $derived(hasRawView ? rawAnnouncement(rawResult) : '');
 
     $effect(() => {
-        if (!isAvailable(internalView, registeredViews)) {
+        const source = data;
+        const byteLimit = maxRawBytes;
+        const shouldGenerate = hasRawView;
+        const restart = rawRestart;
+        void restart;
+        if (!shouldGenerate) {
+            rawResult = {
+                status: 'cancelled',
+                text: null,
+                diagnostics: [],
+                bytes: 0,
+                reason: 'Raw view is not registered.',
+            };
+            rawCancellationAnnounced = false;
+            return;
+        }
+        const generation = ++rawGeneration;
+        const controller = new AbortController();
+        rawController = controller;
+        rawResult = {
+            status: 'pending',
+            text: null,
+            diagnostics: [],
+            bytes: 0,
+            reason: 'Raw generation is in progress.',
+        };
+        void generateStrictJson(source, { signal: controller.signal, maxBytes: byteLimit }).then((result) => {
+            if (generation === rawGeneration && !controller.signal.aborted) {
+                rawResult = result;
+                rawCancellationAnnounced = false;
+            }
+        });
+        return () => {
+            controller.abort();
+            if (rawController === controller) {
+                rawController = undefined;
+            }
+        };
+    });
+
+    $effect(() => {
+        if (rawResult.status !== 'pending' && !isAvailable(internalView, registeredViews)) {
             internalView = firstAvailable(registeredViews);
         }
         if (!registeredViews.some(registration => registration.id === toolbarFocusView)) {
@@ -76,9 +134,20 @@
     $effect.pre(() => {
         if (data !== previousData) {
             previousData = data;
+            if (rawResult.status === 'pending') {
+                rawCancellationAnnounced = true;
+            }
             if (selectedPath === undefined && internalSelectedPath !== null) {
                 internalSelectedPath = null;
                 onSelectedPathChange?.(null);
+            }
+        }
+        if (view !== previousControlledView) {
+            previousControlledView = view;
+            if (rawResult.status === 'pending') {
+                rawCancellationAnnounced = true;
+                rawController?.abort();
+                rawRestart++;
             }
         }
     });
@@ -130,6 +199,33 @@
             internalView = registration.id;
         }
         onViewChange?.(registration.id);
+    }
+
+    async function navigateDiagnostic(diagnostic: RawDiagnostic) {
+        viewStatus = '';
+        if (view === undefined) {
+            internalView = 'tree';
+        }
+        if (activeView !== 'tree') {
+            onViewChange?.('tree');
+        }
+        await tick();
+        for (let length = diagnostic.path.length; length >= 0; length--) {
+            if (await viewer?.focus(diagnostic.path.slice(0, length))) {
+                break;
+            }
+        }
+    }
+
+    function rawAnnouncement(result: typeof rawResult): string {
+        if (result.status === 'pending') {
+            return rawCancellationAnnounced ? 'Raw generation cancelled. Generating Raw…' : 'Generating Raw…';
+        }
+        if (result.status === 'invalid') {
+            const count = result.diagnostics.length;
+            return `Raw generation failed with ${count} diagnostic${count === 1 ? '' : 's'}.`;
+        }
+        return result.status === 'capped' || result.status === 'cancelled' ? result.reason : '';
     }
 
     function viewReasonId(candidate: JsonInspectorView): string {
@@ -236,6 +332,23 @@
         {/each}
     </div>
     {#if viewStatus}<div class='sjd-inspector-status' role='status'>{viewStatus}</div>{/if}
+    {#if rawStatus}
+        <div class='sjd-inspector-status' role={viewStatus ? undefined : 'status'} aria-live='polite'>{rawStatus}</div>
+    {/if}
+    {#if rawResult.status === 'invalid'}
+        <div class='sjd-raw-diagnostics' aria-label='Raw diagnostics'>
+            {#each rawResult.diagnostics as diagnostic (`${diagnostic.code}:${diagnostic.pointer}`)}
+                <button
+                    type='button'
+                    aria-label={`Raw diagnostic at ${diagnostic.pointer || '<root>'}: ${diagnostic.message}`}
+                    onclick={() => navigateDiagnostic(diagnostic)}
+                >
+                    <code>{diagnostic.pointer || '<root>'}</code>
+                    <span>{diagnostic.message}</span>
+                </button>
+            {/each}
+        </div>
+    {/if}
     <div
         class='sjd-inspector-view'
         data-view-panel='tree'
@@ -253,7 +366,7 @@
             onSelectedPathChange={updateSelectedPath}
         />
     </div>
-    {#if rawResult.text !== null}
+    {#if rawResult.status === 'valid'}
         <div
             class='sjd-inspector-view'
             data-view-panel='raw'

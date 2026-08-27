@@ -91,6 +91,7 @@ unavailable reasons until their optional implementations are added.
     data={{ hello: 'world' }}
     {view}
     onViewChange={next => view = next}
+    maxRawBytes={12 * 1024 * 1024}
     showSearch
 />
 ```
@@ -100,11 +101,15 @@ Tree search, selected path, active match and controller methods, so existing
 `JsonViewerHandle` integrations can move to the shell without losing Tree
 behavior. The main package entry does not import the optional Inspector graph.
 
-Raw is enabled only when the complete input is representable as strict JSON. It
-formats with two-space indentation and enables copy only for that complete
-output. `undefined`, BigInt, non-finite numbers, sparse arrays, accessors,
-special JavaScript instances and circular references disable Raw rather than
-being replaced with misleading strings or placeholders.
+Raw is generated asynchronously and enabled only when the complete input is
+representable as strict JSON. It formats with two-space indentation and enables
+copy only for that complete output. `undefined`, BigInt, non-finite numbers,
+sparse arrays, accessors, special JavaScript instances and circular references
+produce path-addressable diagnostics rather than misleading placeholders. A
+diagnostic returns to Tree and focuses the affected node. Generation is
+cooperative and cancellable; `maxRawBytes` limits retained UTF-8 output and
+defaults to 12 MB. `RawDiagnostic` and `RawDiagnosticCode` are exported from the
+Inspector subpath for integrations that need the stable diagnostic vocabulary.
 
 ### Search and programmatic control
 

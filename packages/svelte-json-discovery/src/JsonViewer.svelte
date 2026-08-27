@@ -491,6 +491,45 @@
         return { found: true, value };
     }
 
+    function canRenderPathWithoutReading(path: JsonPath): boolean {
+        let value = data;
+
+        try {
+            for (let index = 0; index < path.length; index++) {
+                if (value === null || (typeof value !== 'object' && typeof value !== 'function')) {
+                    return false;
+                }
+                const part = path[index];
+                let descriptor: PropertyDescriptor | undefined;
+                if (Array.isArray(value) && typeof part === 'number') {
+                    const length = Object.getOwnPropertyDescriptor(value, 'length');
+                    if (!Number.isInteger(part) || !length || !('value' in length) || part < 0 || part >= length.value) {
+                        return false;
+                    }
+                    descriptor = Object.getOwnPropertyDescriptor(value, String(part));
+                    if (!descriptor) {
+                        return index === path.length - 1;
+                    }
+                }
+                else {
+                    descriptor = Object.getOwnPropertyDescriptor(value, part);
+                    if (!descriptor?.enumerable) {
+                        return false;
+                    }
+                }
+                if (!('value' in descriptor)) {
+                    return index === path.length - 1;
+                }
+                value = descriptor.value;
+            }
+        }
+        catch {
+            return false;
+        }
+
+        return true;
+    }
+
     function isExpandablePath(path: JsonPath): boolean {
         const resolved = resolvePath(path);
         return resolved.found && isValueExpandable(resolved.value, options);
@@ -654,13 +693,16 @@
     }
 
     export async function focus(path: JsonPath): Promise<boolean> {
-        if (!resolvePath(path).found) {
+        const renderable = canRenderPathWithoutReading(path);
+        if (!renderable && !resolvePath(path).found) {
             return false;
         }
-
         reveal(path);
         await tick();
         const node = findNode(path);
+        if (node === null) {
+            return false;
+        }
         setFocused(path);
         await tick();
         node?.focus();

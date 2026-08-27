@@ -35,6 +35,63 @@
     opacity: 0.75;
 }
 
+.sjd-validation-summary {
+    display: grid;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.sjd-validation-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sjd-validation-list li {
+    display: contents;
+}
+
+.sjd-validation-list button {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    border-radius: 4px;
+    padding: 4px 7px;
+    color: inherit;
+    background: color-mix(in srgb, currentColor 4%, transparent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sjd-validation-marker {
+    display: inline-block;
+    margin-inline-start: 6px;
+    border-radius: 999px;
+    padding: 0 5px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    font: 10px/1.5 var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    white-space: nowrap;
+}
+
+.sjd-validation-marker[data-severity='error'],
+.sjd-validation-error strong {
+    color: #c62828;
+}
+
+.sjd-validation-marker[data-severity='warning'],
+.sjd-validation-warning strong {
+    color: #a15c00;
+}
+
+.sjd-validation-marker[data-severity='info'],
+.sjd-validation-info strong {
+    color: #1565c0;
+}
+
 .sjd-raw-diagnostics {
     display: grid;
     gap: 4px;

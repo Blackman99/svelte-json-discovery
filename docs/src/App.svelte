@@ -1,6 +1,6 @@
 <script lang='ts'>
     import type { JsonViewerPlugin } from 'svelte-json-discovery';
-    import type { JsonInspectorTableColumn } from 'svelte-json-discovery/inspector';
+    import type { JsonInspectorTableColumn, ValidationIssue } from 'svelte-json-discovery/inspector';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
     import { actionsDemo, bigArray, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
@@ -17,6 +17,11 @@
         { id: 'name', title: 'Person', path: ['name'], sortable: true },
         { id: 'role', title: 'Role', path: ['role'], sortable: true },
         { id: 'active', title: 'Active', accessor: row => row.profile && typeof row.profile === 'object' ? Reflect.get(row.profile, 'active') : undefined },
+    ];
+    const inspectorIssues: ValidationIssue[] = [
+        { path: [1, 'role'], pointer: '/1/role', severity: 'warning', code: 'role-review', message: 'Confirm reviewer access', source: 'policy' },
+        { path: [2, 'profile', 'active'], pointer: '/2/profile/active', severity: 'info', code: 'inactive', message: 'Contributor is inactive', source: 'directory' },
+        { path: [4, 'profile', 'active'], pointer: '/4/profile/active', severity: 'error', code: 'inactive-reviewer', message: 'Reviewer must be active', source: 'policy' },
     ];
 
     const navItems: [string, string][] = [
@@ -143,7 +148,8 @@
     const inspectorCode = `<script lang="ts">
   import type {
     JsonInspectorTableColumn,
-    JsonInspectorView
+    JsonInspectorView,
+    ValidationIssue
   } from 'svelte-json-discovery/inspector';
   import { JsonInspector } from 'svelte-json-discovery/inspector';
 
@@ -158,6 +164,14 @@
     { id: 1, name: 'Ada', profile: { active: true } },
     { id: 2, name: 'Grace', profile: { active: false } }
   ];
+  const issues: ValidationIssue[] = [{
+    path: [1, 'name'],
+    pointer: '/1/name',
+    severity: 'warning',
+    code: 'review',
+    message: 'Confirm display name',
+    source: 'policy'
+  }];
 <\/script>
 
 <JsonInspector
@@ -165,6 +179,7 @@
   {view}
   onViewChange={next => view = next}
   {tableColumns}
+  {issues}
   limit={3}
   maxRawBytes={12 * 1024 * 1024}
   showSearch
@@ -347,11 +362,11 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, asynchronous strict Raw and a configurable object-array Table.'
+            intro='The optional Inspector subpath shares search, selection, canonical paths and precomputed validation issues across Tree, asynchronous strict Raw and a configurable object-array Table.'
             code={inspectorCode}
-            note='Table uses controlled columns here. Activate ID, Person or Role to sort only the three loaded rows; the scope label makes that boundary explicit. Show more reads the next batch. Supplying tableSort delegates full-data ordering to the host.'
+            note='The summary and inline markers come from validator-neutral issues. Activate an issue to reveal it in Tree without clearing search. Table marks only loaded rows and cells; Show more reads and annotates the next batch.'
         >
-            <JsonInspector data={inspectorRows} expanded={1} limit={3} showSearch tableColumns={inspectorColumns} theme={t} />
+            <JsonInspector data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} />
         </Example>
 
         <!-- ——— expand depth ——— -->

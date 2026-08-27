@@ -169,7 +169,7 @@ export function matchAll(
 
 const identifierRx = /^[a-z_$][\w$]*$/i;
 
-export function pathToQuery(path: (string | number)[]): string {
+export function pathToQuery(path: readonly (string | number)[]): string {
     let query = '';
 
     for (const part of path) {

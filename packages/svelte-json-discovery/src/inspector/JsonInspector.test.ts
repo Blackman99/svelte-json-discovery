@@ -1,5 +1,5 @@
 import type { JsonViewerSearchState } from '../types.js';
-import type { JsonInspectorHandle, JsonInspectorTableColumn, JsonInspectorTableSort, JsonInspectorView } from './index.js';
+import type { JsonInspectorHandle, JsonInspectorTableColumn, JsonInspectorTableSort, JsonInspectorView, ValidationIssue } from './index.js';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { createRawSnippet } from 'svelte';
@@ -328,6 +328,413 @@ describe('json inspector tree shell', () => {
         expect(document.querySelector('[data-node-label="target"]')?.getAttribute('aria-selected')).toBe('true');
         expect(await inspector?.collapse(['branch'])).toBe(true);
         expect(document.querySelector('[data-node-label="branch"]')?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('summarizes precomputed validation issues and marks exact Tree nodes', async () => {
+        const issues: ValidationIssue[] = [
+            { path: ['name'], pointer: '/name', severity: 'error', code: 'required', message: 'Name is required', source: 'schema' },
+            { path: ['age'], pointer: '/age', severity: 'warning', code: 'range', message: 'Age is unusual', source: 'business', details: { maximum: 120 } },
+            { path: [], pointer: '', severity: 'info', code: 'review', message: 'Review this record', source: 'policy' },
+        ];
+        render(JsonInspector, { data: { name: '', age: 130 }, expanded: 1, issues });
+
+        const summary = screen.getByRole('region', { name: 'Validation summary' });
+        expect(within(summary).getByRole('status', { name: 'Validation issue counts' }).textContent?.replace(/\s+/g, ' ').trim()).toBe('1 error, 1 warning, 1 info');
+        expect(within(summary).getAllByRole('button')).toHaveLength(3);
+        expect(within(summary).getByRole('button', { name: 'Error required: Name is required at /name from schema' })).not.toBeNull();
+        await waitFor(() => expect(document.querySelector('[data-json-path="[\\"name\\"]"] > .sjd-validation-marker')?.textContent).toBe('1 error'));
+        expect(document.querySelector('[data-json-path="[\\"age\\"]"] > .sjd-validation-marker')?.textContent).toBe('1 warning');
+        expect(document.querySelector('[data-json-path="[]"] > .sjd-validation-marker')?.textContent).toBe('1 info');
+    });
+
+    it('marks only loaded Table rows and cells, then annotates the next window', async () => {
+        const user = userEvent.setup();
+        const issues: ValidationIssue[] = [
+            { path: [0, 'profile', 'name'], pointer: '/0/profile/name', severity: 'error', code: 'name', message: 'Invalid name', source: 'schema' },
+            { path: [1, 'id'], pointer: '/1/id', severity: 'warning', code: 'id', message: 'Check id', source: 'schema' },
+        ];
+        render(JsonInspector, {
+            data: [{ id: 1, profile: { name: '' } }, { id: 2, profile: { name: 'Ada' } }],
+            issues,
+            limit: 1,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const table = screen.getByRole('table', { name: 'JSON table' });
+
+        expect(within(table).getByRole('rowheader', { name: /0/ }).querySelector('.sjd-validation-marker')?.textContent).toBe('1 error');
+        expect(screen.getByRole('button', { name: 'Select cell /0/profile' }).parentElement?.querySelector('.sjd-validation-marker')?.textContent).toBe('1 error');
+        expect(within(table).getAllByRole('rowheader')).toHaveLength(1);
+        await user.click(screen.getByRole('button', { name: 'Show 1 more row' }));
+        expect(within(table).getAllByRole('rowheader')).toHaveLength(2);
+        expect(within(table).getAllByRole('rowheader')[1]?.querySelector('.sjd-validation-marker')?.textContent).toBe('1 warning');
+    });
+
+    it('navigates issues through Tree without clearing search and lets callbacks replace navigation', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: [4, 'name'],
+            pointer: '/4/name',
+            severity: 'error',
+            code: 'required',
+            message: 'Missing name',
+            source: 'schema',
+        };
+        const onIssueSelect = vi.fn();
+        const rendered = render(JsonInspector, {
+            data: [{ name: 'zero' }, { name: 'one' }, { name: 'two' }, { name: 'three' }, { name: 'needle' }],
+            issues: [issue],
+            limit: 2,
+            onIssueSelect,
+            showSearch: true,
+            views: ['tree', 'table'],
+        });
+        await user.type(screen.getByRole('searchbox', { name: 'Search JSON' }), 'needle');
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        await user.click(screen.getByRole('button', { name: 'Error required: Missing name at /4/name from schema' }));
+
+        expect(onIssueSelect).toHaveBeenCalledWith(issue);
+        expect(screen.getByRole('button', { name: 'Tree' }).getAttribute('aria-pressed')).toBe('true');
+        expect((screen.getByRole('searchbox', { name: 'Search JSON' }) as HTMLInputElement).value).toBe('needle');
+        await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('[4,"name"]'));
+
+        const blocking = vi.fn(() => false);
+        await rendered.rerender({
+            data: [{ name: 'zero' }, { name: 'one' }, { name: 'two' }, { name: 'three' }, { name: 'needle' }],
+            defaultView: 'table',
+            issues: [issue],
+            limit: 2,
+            onIssueSelect: blocking,
+            showSearch: true,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        await user.click(screen.getByRole('button', { name: 'Error required: Missing name at /4/name from schema' }));
+        expect(blocking).toHaveBeenCalledWith(expect.objectContaining({ code: 'required' }));
+        expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('diagnoses invalid and missing validation paths locally', async () => {
+        const user = userEvent.setup();
+        const missing: ValidationIssue = {
+            path: ['missing'],
+            pointer: '/missing',
+            severity: 'info',
+            code: 'external',
+            message: 'External target',
+            source: 'adapter',
+        };
+        render(JsonInspector, {
+            data: { present: true },
+            issues: [
+                missing,
+                { path: ['bad'], pointer: '/wrong', severity: 'error', code: 'bad', message: 'Bad pointer', source: 'adapter' },
+                { path: ['bad'], pointer: '/bad', severity: 'fatal', code: 'bad', message: 'Bad severity', source: 'adapter' },
+            ] as unknown as ValidationIssue[],
+        });
+
+        expect(screen.getByRole('status', { name: 'Validation diagnostics' }).textContent).toBe('Ignored 2 invalid validation issues.');
+        await user.click(screen.getByRole('button', { name: 'Info external: External target at /missing from adapter' }));
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Validation navigation' }).textContent).toBe('Validation issue target is unavailable: /missing'));
+    });
+
+    it('navigates non-standard validation paths without inventing a JSON Pointer', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: ['lookup', 0],
+            pointer: null,
+            severity: 'info',
+            code: 'map-entry',
+            message: 'Review map entry',
+            source: 'adapter',
+        };
+        render(JsonInspector, {
+            data: { lookup: new Map([['key', 'value']]) },
+            expanded: 1,
+            issues: [issue],
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Info map-entry: Review map entry at lookup[0] from adapter' }));
+        await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('["lookup",0]'));
+        expect(screen.queryByRole('status', { name: 'Validation navigation' })).toBeNull();
+    });
+
+    it('keeps the newest asynchronous issue activation authoritative', async () => {
+        const user = userEvent.setup();
+        const issues: ValidationIssue[] = [
+            { path: ['first'], pointer: '/first', severity: 'error', code: 'first', message: 'First issue', source: 'schema' },
+            { path: ['second'], pointer: '/second', severity: 'warning', code: 'second', message: 'Second issue', source: 'schema' },
+        ];
+        let resolveFirst: (() => void) | undefined;
+        let resolveSecond: (() => void) | undefined;
+        const onIssueSelect = vi.fn((issue: ValidationIssue) => new Promise<void>((resolve) => {
+            if (issue.code === 'first') {
+                resolveFirst = resolve;
+            }
+            else {
+                resolveSecond = resolve;
+            }
+        }));
+        render(JsonInspector, { data: { first: 1, second: 2 }, expanded: 1, issues, onIssueSelect });
+
+        await user.click(screen.getByRole('button', { name: 'Error first: First issue at /first from schema' }));
+        await user.click(screen.getByRole('button', { name: 'Warning second: Second issue at /second from schema' }));
+        resolveSecond?.();
+        await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('["second"]'));
+        resolveFirst?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(onIssueSelect).toHaveBeenCalledTimes(2);
+        expect(document.activeElement?.getAttribute('data-json-path')).toBe('["second"]');
+    });
+
+    it('invalidates pending issue activation when data and issues are replaced', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: ['old'],
+            pointer: '/old',
+            severity: 'error',
+            code: 'old',
+            message: 'Old issue',
+            source: 'schema',
+        };
+        let resolveSelection: (() => void) | undefined;
+        const rendered = render(JsonInspector, {
+            data: { old: true },
+            expanded: 1,
+            issues: [issue],
+            onIssueSelect: () => new Promise<void>(resolve => (resolveSelection = resolve)),
+        });
+        await user.click(screen.getByRole('button', { name: 'Error old: Old issue at /old from schema' }));
+        await rendered.rerender({ data: { fresh: true }, expanded: 1, issues: [] });
+
+        resolveSelection?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(screen.queryByRole('status', { name: 'Validation navigation' })).toBeNull();
+        expect(document.querySelector('.sjd-inspector')?.getAttribute('data-active-path')).toBe('null');
+    });
+
+    it('does not let pending issue activation override a newer view choice', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: ['value'],
+            pointer: '/value',
+            severity: 'error',
+            code: 'value',
+            message: 'Review value',
+            source: 'schema',
+        };
+        let resolveSelection: (() => void) | undefined;
+        render(JsonInspector, {
+            data: { value: 1 },
+            issues: [issue],
+            onIssueSelect: () => new Promise<void>(resolve => (resolveSelection = resolve)),
+            views: ['tree', 'raw'],
+        });
+        const raw = screen.getByRole('button', { name: 'Raw' });
+        await waitFor(() => expect(raw.getAttribute('aria-disabled')).toBeNull());
+
+        await user.click(screen.getByRole('button', { name: 'Error value: Review value at /value from schema' }));
+        await user.click(raw);
+        resolveSelection?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(raw.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('does not request Tree after a controlled host supersedes pending issue activation', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: ['value'],
+            pointer: '/value',
+            severity: 'error',
+            code: 'value',
+            message: 'Review value',
+            source: 'schema',
+        };
+        let resolveSelection: (() => void) | undefined;
+        const onViewChange = vi.fn();
+        const onIssueSelect = () => new Promise<void>(resolve => (resolveSelection = resolve));
+        const data = { value: 1 };
+        const issues = [issue];
+        const rendered = render(JsonInspector, {
+            data,
+            issues,
+            onIssueSelect,
+            onViewChange,
+            view: 'tree',
+            views: ['tree', 'raw'],
+        });
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Raw' }).getAttribute('aria-disabled')).toBeNull());
+        await user.click(screen.getByRole('button', { name: 'Error value: Review value at /value from schema' }));
+        await rendered.rerender({ data, issues, onIssueSelect, onViewChange, view: 'raw', views: ['tree', 'raw'] });
+
+        resolveSelection?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(screen.getByRole('button', { name: 'Raw' }).getAttribute('aria-pressed')).toBe('true');
+        expect(onViewChange).not.toHaveBeenCalledWith('tree');
+    });
+
+    it('focuses an issue after a controlled host accepts the requested Tree view', async () => {
+        const user = userEvent.setup();
+        const data = { value: 1 };
+        const issues: ValidationIssue[] = [{
+            path: ['value'],
+            pointer: '/value',
+            severity: 'error',
+            code: 'value',
+            message: 'Review value',
+            source: 'schema',
+        }];
+        let applyView: (view: JsonInspectorView) => void = () => undefined;
+        const onViewChange = vi.fn((view: JsonInspectorView) => applyView(view));
+        const rendered = render(JsonInspector, { data, issues, onViewChange, view: 'raw', views: ['tree', 'raw'] });
+        applyView = view => void rendered.rerender({ data, issues, onViewChange, view, views: ['tree', 'raw'] });
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Raw' }).getAttribute('aria-pressed')).toBe('true'));
+
+        await user.click(screen.getByRole('button', { name: 'Error value: Review value at /value from schema' }));
+
+        expect(onViewChange).toHaveBeenCalledWith('tree');
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Tree' }).getAttribute('aria-pressed')).toBe('true'));
+        await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('["value"]'));
+    });
+
+    it('does not let pending issue activation override newer Raw diagnostic navigation', async () => {
+        const user = userEvent.setup();
+        const issue: ValidationIssue = {
+            path: ['first'],
+            pointer: '/first',
+            severity: 'error',
+            code: 'first',
+            message: 'Review first',
+            source: 'schema',
+        };
+        let resolveSelection: (() => void) | undefined;
+        render(JsonInspector, {
+            data: { first: 1, bad: undefined },
+            expanded: 1,
+            issues: [issue],
+            onIssueSelect: () => new Promise<void>(resolve => (resolveSelection = resolve)),
+        });
+        const diagnostic = await screen.findByRole('button', { name: 'Raw diagnostic at /bad: Undefined is not valid JSON.' });
+
+        await user.click(screen.getByRole('button', { name: 'Error first: Review first at /first from schema' }));
+        await user.click(diagnostic);
+        await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('["bad"]'));
+        resolveSelection?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(document.activeElement?.getAttribute('data-json-path')).toBe('["bad"]');
+    });
+
+    it('continues after a hostile validation entry and renders later valid issues', () => {
+        const revoked = Proxy.revocable({}, {});
+        revoked.revoke();
+        const valid: ValidationIssue = {
+            path: ['value'],
+            pointer: '/value',
+            severity: 'info',
+            code: 'valid',
+            message: 'Still visible',
+            source: 'adapter',
+        };
+        render(JsonInspector, { data: { value: 1 }, issues: [revoked.proxy, valid] as unknown as ValidationIssue[] });
+
+        expect(screen.getByRole('status', { name: 'Validation diagnostics' }).textContent).toBe('Ignored 1 invalid validation issue.');
+        expect(screen.getByRole('button', { name: 'Info valid: Still visible at /value from adapter' })).not.toBeNull();
+    });
+
+    it('enumerates only present validation entries in a large sparse array', () => {
+        const valid: ValidationIssue = {
+            path: ['value'],
+            pointer: '/value',
+            severity: 'info',
+            code: 'valid',
+            message: 'Still visible',
+            source: 'adapter',
+        };
+        const sparse: ValidationIssue[] = [];
+        sparse.length = 20_000;
+        sparse[0] = valid;
+        let descriptorReads = 0;
+        const guarded = new Proxy(sparse, {
+            getOwnPropertyDescriptor(target, key) {
+                descriptorReads++;
+                return Reflect.getOwnPropertyDescriptor(target, key);
+            },
+        });
+        render(JsonInspector, { data: { value: 1 }, issues: guarded });
+
+        expect(descriptorReads).toBeLessThanOrEqual(2);
+        expect(screen.getByRole('button', { name: 'Info valid: Still visible at /value from adapter' })).not.toBeNull();
+        expect(screen.queryByRole('status', { name: 'Validation diagnostics' })).toBeNull();
+    });
+
+    it('counts valid validation issues beyond the summary window without truncation', () => {
+        const issues: ValidationIssue[] = Array.from({ length: 10_001 }, (_, index) => ({
+            path: [],
+            pointer: '',
+            severity: 'error',
+            code: `issue-${index}`,
+            message: `Issue ${index}`,
+            source: 'adapter',
+        }));
+        render(JsonInspector, { data: null, issues });
+
+        expect(screen.getByRole('status', { name: 'Validation issue counts' }).textContent?.replace(/\s+/g, ' ').trim()).toBe('10001 errors, 0 warnings, 0 info issues');
+        expect(screen.queryByRole('status', { name: 'Validation diagnostics' })).toBeNull();
+    });
+
+    it('normalizes Proxy-provided validation indices in numeric order', () => {
+        const issues: ValidationIssue[] = ['first', 'second', 'third'].map((code, index) => ({
+            path: [index],
+            pointer: `/${index}`,
+            severity: 'info',
+            code,
+            message: code,
+            source: 'adapter',
+        }));
+        const reversed = new Proxy(issues, {
+            ownKeys: target => Reflect.ownKeys(target).reverse(),
+        });
+        render(JsonInspector, { data: [1, 2, 3], issues: reversed });
+        const summary = screen.getByRole('region', { name: 'Validation summary' });
+
+        expect(within(summary).getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual([
+            'Info first: first at /0 from adapter',
+            'Info second: second at /1 from adapter',
+            'Info third: third at /2 from adapter',
+        ]);
+    });
+
+    it('pages large validation summaries with valid list semantics', async () => {
+        const user = userEvent.setup();
+        const issues: ValidationIssue[] = Array.from({ length: 120 }, (_, index) => ({
+            path: [index],
+            pointer: `/${index}`,
+            severity: 'info',
+            code: `issue-${index}`,
+            message: `Issue ${index}`,
+            source: 'adapter',
+        }));
+        render(JsonInspector, { data: Array.from({ length: 120 }), issues });
+        const summary = screen.getByRole('region', { name: 'Validation summary' });
+
+        expect(within(summary).getAllByRole('listitem')).toHaveLength(50);
+        expect(within(summary).getByRole('status', { name: 'Validation issue counts' }).textContent?.replace(/\s+/g, ' ').trim()).toBe('0 errors, 0 warnings, 120 info issues');
+        expect(within(summary).getByRole('status', { name: 'Validation issue window' }).textContent).toBe('Showing 50 of 120 validation issues.');
+        await user.click(within(summary).getByRole('button', { name: 'Show 50 more validation issues' }));
+        expect(within(summary).getAllByRole('listitem')).toHaveLength(100);
+    });
+
+    it('announces mixed-severity node markers without overstating errors', async () => {
+        const issues: ValidationIssue[] = [
+            { path: ['value'], pointer: '/value', severity: 'error', code: 'error', message: 'Invalid', source: 'schema' },
+            { path: ['value'], pointer: '/value', severity: 'warning', code: 'warning', message: 'Review', source: 'policy' },
+            { path: ['other'], pointer: '/other', severity: 'info', code: 'first-info', message: 'First note', source: 'policy' },
+            { path: ['other'], pointer: '/other', severity: 'info', code: 'second-info', message: 'Second note', source: 'policy' },
+        ];
+        render(JsonInspector, { data: { value: 1, other: 2 }, expanded: 1, issues });
+
+        await waitFor(() => expect(document.querySelector('[data-json-path="[\\"value\\"]"] > .sjd-validation-marker')?.getAttribute('aria-label')).toBe('2 issues, highest severity error'));
+        expect(document.querySelector('[data-json-path="[\\"other\\"]"] > .sjd-validation-marker')?.getAttribute('aria-label')).toBe('2 info issues');
     });
 
     it('keeps a controlled view authoritative', async () => {

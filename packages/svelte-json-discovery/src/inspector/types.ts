@@ -24,6 +24,19 @@ export interface RawDiagnostic {
     readonly pointer: string;
 }
 
+export type ValidationIssueSeverity = 'error' | 'warning' | 'info';
+
+export interface ValidationIssue {
+    readonly path: JsonPath;
+    /** Canonical RFC 6901 Pointer, or null for a non-standard JSON location. */
+    readonly pointer: string | null;
+    readonly severity: ValidationIssueSeverity;
+    readonly code: string;
+    readonly message: string;
+    readonly source: string;
+    readonly details?: unknown;
+}
+
 export type JsonInspectorTableSortDirection = 'ascending' | 'descending';
 
 export interface JsonInspectorTableSort {
@@ -86,4 +99,8 @@ export type JsonInspectorProps = ComponentProps<typeof JsonViewer> & {
     tableSort?: JsonInspectorTableSort | null;
     /** Called when a sortable Table header requests its next sort state. */
     onTableSortChange?: (sort: JsonInspectorTableSort | null) => void;
+    /** Precomputed validation issues. No validator is bundled or invoked. */
+    issues?: readonly ValidationIssue[];
+    /** Return false to replace the default Tree navigation; otherwise augments it. */
+    onIssueSelect?: (issue: ValidationIssue) => boolean | Promise<boolean | void> | void;
 };

@@ -156,6 +156,37 @@ one selects its source row. Custom renderers own their interactive markup and
 call the supplied `select()` action; renderer or accessor failures fall back to
 local compact/error cells without taking down the Inspector.
 
+Precomputed validation issues can be supplied without bundling a validator.
+The Inspector announces error, warning and info totals, marks matching Tree
+nodes and currently loaded Table rows/cells, and navigates an activated issue
+through Tree while preserving the current search. Standard JSON locations must
+include their canonical RFC 6901 Pointer; non-standard locations such as Map
+entries use `pointer: null`.
+
+```svelte
+<script lang='ts'>
+    import type { ValidationIssue } from 'svelte-json-discovery/inspector';
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+
+    const issues: ValidationIssue[] = [{
+        path: [0, 'name'],
+        pointer: '/0/name',
+        severity: 'error',
+        code: 'required',
+        message: 'Name is required',
+        source: 'schema',
+    }];
+</script>
+
+<JsonInspector data={rows} {issues} />
+```
+
+`ValidationIssue` is a stable adapter protocol with `path`, `pointer`,
+`severity`, `code`, `message`, `source` and optional `details`. Malformed
+issues are ignored with a local diagnostic, and an issue whose target no longer
+exists reports a local navigation status. `onIssueSelect` runs before default
+navigation: return `false` to replace it, or return anything else to augment it.
+
 ### Search and programmatic control
 
 ```svelte

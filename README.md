@@ -55,6 +55,8 @@ pnpm add svelte-json-discovery
 - 📊 **Configurable object-array Table** — automatic or controlled columns,
   compact/custom cells, shared paths, bounded Show more rendering and explicit
   current-window vs host-controlled full-data sorting
+- ✅ **Precomputed validation issues** — validator-neutral error, warning and
+  info summaries with Tree/Table markers and path-aware navigation
 - 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
   formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants

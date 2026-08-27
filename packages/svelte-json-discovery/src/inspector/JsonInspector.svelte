@@ -1,8 +1,8 @@
 <script lang='ts'>
     import type { JsonPath, JsonViewerHandle, JsonViewerSearchState, StructOptions } from '../types.js';
     import type { StrictJsonResult } from './strict-json.js';
-    import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic } from './types.js';
-    import { tick } from 'svelte';
+    import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic, ValidationIssue } from './types.js';
+    import { onDestroy, tick } from 'svelte';
     import JsonViewer from '../JsonViewer.svelte';
     import { normalizeSearchQuery } from '../search.js';
     import { intOption, listLimit } from '../struct-helpers.js';
@@ -11,6 +11,8 @@
     import { DEFAULT_MAX_RAW_BYTES, generateStrictJson } from './strict-json.js';
     import { createTableWindow } from './table-model.js';
     import TableView from './TableView.svelte';
+    import { highestSeverity, issueMarkerLabel, normalizeValidationIssues } from './validation.js';
+    import ValidationSummary from './ValidationSummary.svelte';
     import './inspector.css';
 
     type ViewRegistration = {
@@ -43,11 +45,14 @@
         tableColumns,
         tableSort,
         onTableSortChange,
+        issues,
+        onIssueSelect,
         ...viewerProps
     }: JsonInspectorProps = $props();
 
     let viewer = $state<JsonViewerHandle>();
     let toolbar = $state<HTMLElement>();
+    let treePanel = $state<HTMLElement>();
     // svelte-ignore state_referenced_locally
     let internalView = $state<JsonInspectorView>(initialView(defaultView, views));
     // svelte-ignore state_referenced_locally
@@ -62,6 +67,10 @@
         currentPath: null,
     });
     let viewStatus = $state('');
+    let validationNavigation = $state('');
+    let validationSelectionGeneration = 0;
+    let validationRequestedView: JsonInspectorView | null = null;
+    let destroyed = false;
     let rawGeneration = 0;
     let rawRestart = $state(0);
     let rawController: AbortController | undefined;
@@ -78,6 +87,13 @@
     let previousData = data;
     // svelte-ignore state_referenced_locally
     let previousControlledView = view;
+    // svelte-ignore state_referenced_locally
+    let previousIssues = issues;
+
+    onDestroy(() => {
+        destroyed = true;
+        validationSelectionGeneration++;
+    });
 
     const hasTableView = $derived(views.includes('table'));
     const tableBatchSize = $derived(viewerProps.limit === false ? Number.MAX_SAFE_INTEGER : intOption(viewerProps.limit, 50));
@@ -105,6 +121,37 @@
         allowedExcessStringLength: intOption(viewerProps.allowedExcessStringLength, 10),
         maxPropertyLength: intOption(viewerProps.maxPropertyLength, Infinity),
         maxCompactPropertyLength: intOption(viewerProps.maxCompactPropertyLength, 35),
+    });
+    const validationState = $derived(normalizeValidationIssues(issues));
+
+    $effect(() => {
+        const panel = treePanel;
+        const state = validationState;
+        if (!panel) {
+            return;
+        }
+        let queued = false;
+        let disposed = false;
+        const sync = () => {
+            queued = false;
+            if (!disposed) {
+                syncTreeIssueMarkers(panel, state);
+            }
+        };
+        const schedule = () => {
+            if (!queued) {
+                queued = true;
+                queueMicrotask(sync);
+            }
+        };
+        sync();
+        const observer = new MutationObserver(schedule);
+        observer.observe(panel, { childList: true, subtree: true });
+        return () => {
+            disposed = true;
+            observer.disconnect();
+            panel.querySelectorAll('.sjd-tree-validation-marker').forEach(marker => marker.remove());
+        };
     });
 
     $effect(() => {
@@ -163,6 +210,8 @@
     $effect.pre(() => {
         if (data !== previousData) {
             previousData = data;
+            validationSelectionGeneration++;
+            validationNavigation = '';
             if (rawResult.status === 'pending') {
                 rawCancellationAnnounced = true;
             }
@@ -171,8 +220,20 @@
                 onSelectedPathChange?.(null);
             }
         }
+        if (issues !== previousIssues) {
+            previousIssues = issues;
+            validationSelectionGeneration++;
+            validationNavigation = '';
+        }
         if (view !== previousControlledView) {
             previousControlledView = view;
+            if (validationRequestedView === view) {
+                validationRequestedView = null;
+            }
+            else {
+                validationSelectionGeneration++;
+                validationNavigation = '';
+            }
             if (rawResult.status === 'pending') {
                 rawCancellationAnnounced = true;
                 rawController?.abort();
@@ -235,6 +296,9 @@
         if (registration.id === activeView) {
             return;
         }
+        validationRequestedView = null;
+        validationSelectionGeneration++;
+        validationNavigation = '';
         viewStatus = '';
         if (view === undefined) {
             internalView = registration.id;
@@ -243,6 +307,9 @@
     }
 
     async function navigateDiagnostic(diagnostic: RawDiagnostic) {
+        validationRequestedView = null;
+        validationSelectionGeneration++;
+        validationNavigation = '';
         viewStatus = '';
         if (view === undefined) {
             internalView = 'tree';
@@ -254,6 +321,72 @@
         for (let length = diagnostic.path.length; length >= 0; length--) {
             if (await viewer?.focus(diagnostic.path.slice(0, length))) {
                 break;
+            }
+        }
+    }
+
+    async function selectValidationIssue(issue: ValidationIssue) {
+        const generation = ++validationSelectionGeneration;
+        validationNavigation = '';
+        try {
+            const shouldNavigate = await onIssueSelect?.(issue);
+            if (destroyed || generation !== validationSelectionGeneration || shouldNavigate === false) {
+                return;
+            }
+        }
+        catch {
+            if (!destroyed && generation === validationSelectionGeneration) {
+                validationNavigation = `Validation issue callback failed: ${issue.pointer ?? '<non-standard path>'}`;
+            }
+            return;
+        }
+        if (view === undefined) {
+            internalView = 'tree';
+        }
+        if (activeView !== 'tree') {
+            if (view !== undefined) {
+                validationRequestedView = 'tree';
+            }
+            onViewChange?.('tree');
+        }
+        await tick();
+        if (destroyed || generation !== validationSelectionGeneration) {
+            return;
+        }
+        if (activeView !== 'tree' && view !== undefined) {
+            validationRequestedView = null;
+            validationNavigation = `Validation issue requires Tree view: ${issue.pointer ?? '<non-standard path>'}`;
+            return;
+        }
+        validationRequestedView = null;
+        const focused = await viewer?.focus(issue.path);
+        if (!destroyed && generation === validationSelectionGeneration && !focused) {
+            validationNavigation = `Validation issue target is unavailable: ${issue.pointer ?? '<non-standard path>'}`;
+        }
+    }
+
+    function syncTreeIssueMarkers(panel: HTMLElement, state: typeof validationState) {
+        for (const node of panel.querySelectorAll<HTMLElement>('[role="treeitem"][data-json-path]')) {
+            const encoded = node.dataset.jsonPath;
+            const marker = node.querySelector<HTMLElement>(':scope > .sjd-tree-validation-marker');
+            const related = encoded === undefined ? [] : state.byPath.get(encoded) ?? [];
+            if (related.length === 0) {
+                marker?.remove();
+                continue;
+            }
+            const current = marker ?? document.createElement('span');
+            current.className = 'sjd-validation-marker sjd-tree-validation-marker';
+            current.dataset.severity = highestSeverity(related);
+            const label = issueMarkerLabel(related);
+            if (current.textContent !== label) {
+                current.textContent = label;
+            }
+            if (current.getAttribute('aria-label') !== label) {
+                current.setAttribute('aria-label', label);
+            }
+            if (!marker) {
+                const group = [...node.children].find(child => child.getAttribute('role') === 'group');
+                node.insertBefore(current, group ?? null);
             }
         }
     }
@@ -362,6 +495,15 @@
 </script>
 
 <div class='sjd-inspector' data-active-view={activeView} data-active-path={JSON.stringify(activePath)}>
+    <ValidationSummary state={validationState} onSelect={selectValidationIssue} />
+    {#if validationState.invalidCount > 0}
+        <div class='sjd-inspector-status' role='status' aria-label='Validation diagnostics'>
+            Ignored {validationState.invalidCount} invalid validation {validationState.invalidCount === 1 ? 'issue' : 'issues'}.
+        </div>
+    {/if}
+    {#if validationNavigation}
+        <div class='sjd-inspector-status' role='status' aria-label='Validation navigation'>{validationNavigation}</div>
+    {/if}
     <div
         class='sjd-inspector-toolbar'
         bind:this={toolbar}
@@ -407,6 +549,7 @@
         </div>
     {/if}
     <div
+        bind:this={treePanel}
         class='sjd-inspector-view'
         data-view-panel='tree'
         aria-label='Tree view'
@@ -452,6 +595,7 @@
                 snapshot={tableSnapshot}
                 sort={tableSort}
                 theme={inspectorTheme}
+                validation={validationState}
             />
         </div>
     {/if}

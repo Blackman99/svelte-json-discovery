@@ -1,10 +1,12 @@
 <script lang='ts'>
     import type { JsonPath, StructOptions } from '../types.js';
     import type { TableSnapshot, TableWindow } from './table-model.js';
-    import type { JsonInspectorTableColumn, JsonInspectorTableSort } from './types.js';
+    import type { JsonInspectorTableColumn, JsonInspectorTableSort, ValidationIssue } from './types.js';
+    import type { ValidationState } from './validation.js';
     import { pathToPointer, samePath } from '../utils.js';
     import { createTablePresentation } from './table-presentation.js';
     import TableCell from './TableCell.svelte';
+    import { highestSeverity, issueMarkerLabel, issuesBelowPath } from './validation.js';
 
     const {
         currentSearchPath,
@@ -18,6 +20,7 @@
         snapshot,
         sort,
         theme,
+        validation,
     }: {
         columns: readonly JsonInspectorTableColumn[] | undefined;
         currentSearchPath: JsonPath | null;
@@ -30,6 +33,7 @@
         snapshot: TableSnapshot;
         sort: JsonInspectorTableSort | null | undefined;
         theme: 'auto' | 'dark' | 'light';
+        validation: ValidationState;
     } = $props();
 
     const remaining = $derived(Math.max(snapshot.totalRows - snapshot.rows.length, 0));
@@ -72,7 +76,21 @@
         const next = nextSort(columnId);
         return next === null ? `Clear ${title} sorting` : `Sort ${title} ${next.direction}`;
     }
+
+    function relatedIssues(path: JsonPath): readonly ValidationIssue[] {
+        return issuesBelowPath(validation, path);
+    }
 </script>
+
+{#snippet issueMarker(related: readonly ValidationIssue[])}
+    {#if related.length > 0}
+        <span
+            class='sjd-validation-marker'
+            data-severity={highestSeverity(related)}
+            aria-label={issueMarkerLabel(related)}
+        >{issueMarkerLabel(related)}</span>
+    {/if}
+{/snippet}
 
 <div class='sjd-table-view view-struct sjd-theme-{theme}' style:color-scheme={theme === 'auto' ? 'light dark' : theme}>
     <span class='sjd-table-ordering' role='status' aria-label='Table ordering scope'>
@@ -105,7 +123,7 @@
                             aria-label={`Select row ${row.source.index}`}
                             aria-pressed={samePath(selectedPath, [row.source.index])}
                             onclick={() => onSelect([row.source.index])}
-                        >{row.source.index}</button>
+                        >{row.source.index}</button>{@render issueMarker(relatedIssues([row.source.index]))}
                     </th>
                     {#each row.cells as cell, columnIndex (cell.column.id)}
                         <td>
@@ -122,6 +140,9 @@
                                 />
                             {:else}
                                 <span class='sjd-table-missing' aria-label={`Missing cell ${pathToPointer(cell.path)}`}>—</span>
+                            {/if}
+                            {#if cell.jsonCompatible}
+                                {@render issueMarker(relatedIssues(cell.path))}
                             {/if}
                         </td>
                     {/each}

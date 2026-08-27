@@ -10,4 +10,6 @@ export type {
     JsonInspectorView,
     RawDiagnostic,
     RawDiagnosticCode,
+    ValidationIssue,
+    ValidationIssueSeverity,
 } from './types.js';

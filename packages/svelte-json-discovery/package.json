@@ -42,6 +42,10 @@
             "types": "./dist/validation/ajv.d.ts",
             "default": "./dist/validation/ajv.js"
         },
+        "./validation/zod": {
+            "types": "./dist/validation/zod.d.ts",
+            "default": "./dist/validation/zod.js"
+        },
         "./package.json": "./package.json"
     },
     "types": "./dist/index.d.ts",
@@ -69,7 +73,8 @@
         "svelte": "^5.56.9",
         "svelte-check": "^4.7.3",
         "typescript": "~6.0.3",
-        "vitest": "^4.1.11"
+        "vitest": "^4.1.11",
+        "zod": "^4.4.3"
     },
     "publishConfig": {
         "access": "public"

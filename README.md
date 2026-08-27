@@ -57,7 +57,7 @@ pnpm add svelte-json-discovery
   current-window vs host-controlled full-data sorting
 - ✅ **Validation workflows** — precomputed or cancellable async issues,
   accessible summaries, Tree/Table markers, path navigation and optional
-  validator adapters
+  Ajv and Zod adapters
 - 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
   formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants

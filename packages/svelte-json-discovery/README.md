@@ -229,6 +229,33 @@ message, source, default error severity and the original Ajv error in `details`
 are preserved deterministically. `./validation/ajv` is isolated from both the
 main package entry and the generic `./validation` entry.
 
+The optional Zod adapter accepts a Zod schema through the same validator
+protocol. The host application owns the Zod dependency:
+
+```svelte
+<script lang='ts'>
+    import { JsonInspector } from 'svelte-json-discovery/inspector';
+    import { createZodValidator } from 'svelte-json-discovery/validation/zod';
+    import * as z from 'zod';
+
+    const schema = z.object({
+        name: z.string().min(1),
+        roles: z.array(z.string()),
+    });
+    const validate = createZodValidator(schema);
+</script>
+
+<JsonInspector {data} {validate} />
+```
+
+Zod object and array path segments become canonical paths and escaped RFC 6901
+Pointers. Codes, messages, source, default error severity and the original Zod
+issue in `details` are preserved in input order. Non-standard property keys use
+a collision-free unavailable fallback and a `null` Pointer, while the original
+key remains in `details`; unavailable targets remain local Inspector diagnostics.
+`./validation/zod` is isolated from both the main package entry and the generic
+`./validation` entry.
+
 ### Search and programmatic control
 
 ```svelte

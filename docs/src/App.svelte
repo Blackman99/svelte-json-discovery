@@ -383,7 +383,7 @@
             title='Inspector shell'
             intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw and Table, while precomputed and cancellable async validation feed one issue workflow.'
             code={inspectorCode}
-            note='The summary combines two precomputed issues with one async-policy issue. Validation state is announced without blocking Tree; changing data aborts stale work. The optional Ajv adapter stays in a separate entry point.'
+            note='The summary combines two precomputed issues with one async-policy issue. Validation state is announced without blocking Tree; changing data aborts stale work. Optional Ajv and Zod adapters stay in separate entry points.'
         >
             <JsonInspector data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
         </Example>

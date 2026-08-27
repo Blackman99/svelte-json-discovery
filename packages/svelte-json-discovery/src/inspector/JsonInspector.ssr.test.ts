@@ -27,4 +27,12 @@ describe('json inspector package boundary', () => {
         expect('dependencies' in packageJson && packageJson.dependencies).toBeFalsy();
         expect(packageJson.devDependencies.ajv).toBeTruthy();
     });
+
+    it('keeps the Zod adapter in its own optional entry graph', () => {
+        expect(packageJson.exports['./validation/zod']).toBeTruthy();
+        expect(mainEntry).not.toHaveProperty('createZodValidator');
+        expect(validationEntry).not.toHaveProperty('createZodValidator');
+        expect('dependencies' in packageJson && packageJson.dependencies).toBeFalsy();
+        expect(packageJson.devDependencies.zod).toBeTruthy();
+    });
 });

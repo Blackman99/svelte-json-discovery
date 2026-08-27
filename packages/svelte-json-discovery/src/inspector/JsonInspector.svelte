@@ -1,11 +1,16 @@
 <script lang='ts'>
-    import type { JsonPath, JsonViewerHandle, JsonViewerSearchState } from '../types.js';
+    import type { JsonPath, JsonViewerHandle, JsonViewerSearchState, StructOptions } from '../types.js';
     import type { StrictJsonResult } from './strict-json.js';
     import type { JsonInspectorProps, JsonInspectorView, RawDiagnostic } from './types.js';
     import { tick } from 'svelte';
     import JsonViewer from '../JsonViewer.svelte';
+    import { normalizeSearchQuery } from '../search.js';
+    import { intOption, listLimit } from '../struct-helpers.js';
+    import { isRegExp } from '../utils.js';
     import RawView from './RawView.svelte';
     import { DEFAULT_MAX_RAW_BYTES, generateStrictJson } from './strict-json.js';
+    import { createTableWindow } from './table-model.js';
+    import TableView from './TableView.svelte';
     import './inspector.css';
 
     type ViewRegistration = {
@@ -17,7 +22,7 @@
     const BUILT_IN_VIEWS: readonly ViewRegistration[] = [
         { id: 'tree', label: 'Tree', disabledReason: null },
         { id: 'raw', label: 'Raw', disabledReason: null },
-        { id: 'table', label: 'Table', disabledReason: 'Table view is not available in this build.' },
+        { id: 'table', label: 'Table', disabledReason: null },
         { id: 'diff', label: 'Diff', disabledReason: 'Diff view is not available in this build.' },
     ];
     const DEFAULT_VIEWS = BUILT_IN_VIEWS.map(view => view.id);
@@ -58,6 +63,7 @@
     let rawRestart = $state(0);
     let rawController: AbortController | undefined;
     let rawCancellationAnnounced = $state(false);
+    let tableVersion = $state(0);
     let rawResult = $state<StrictJsonResult | { status: 'pending'; text: null; diagnostics: readonly []; bytes: 0; reason: string }>({
         status: 'pending',
         text: null,
@@ -70,13 +76,33 @@
     // svelte-ignore state_referenced_locally
     let previousControlledView = view;
 
-    const registeredViews = $derived(resolveViews(views, rawResult.reason));
+    const hasTableView = $derived(views.includes('table'));
+    const tableBatchSize = $derived(viewerProps.limit === false ? Number.MAX_SAFE_INTEGER : intOption(viewerProps.limit, 50));
+    const tableModel = $derived(createTableWindow(hasTableView ? data : null, tableBatchSize));
+    const tableSnapshot = $derived.by(() => {
+        void tableVersion;
+        return tableModel.snapshot();
+    });
+    const registeredViews = $derived(resolveViews(views, rawResult.reason, tableSnapshot.disabledReason));
     const activeView = $derived(resolveActiveView(view, internalView, registeredViews));
     const sharedSearch = $derived(search === undefined ? internalSearch : search);
     const sharedSelectedPath = $derived(selectedPath === undefined ? internalSelectedPath : selectedPath);
     const activePath = $derived(searchState.currentPath ?? sharedSelectedPath);
     const hasRawView = $derived(views.includes('raw'));
     const rawStatus = $derived(hasRawView ? rawAnnouncement(rawResult) : '');
+    const inspectorTheme = $derived(viewerProps.theme === 'light' || viewerProps.theme === 'dark' ? viewerProps.theme : 'auto');
+    const tableOptions = $derived<StructOptions>({
+        match: normalizedTableMatch(sharedSearch, viewerProps.match),
+        matchIgnoreCase: typeof sharedSearch === 'string' && sharedSearch.trim() !== '',
+        limit: listLimit(viewerProps.limit, 50),
+        limitCollapsed: listLimit(viewerProps.limitCollapsed, 4),
+        limitCompactObjectEntries: listLimit(viewerProps.limitCompactObjectEntries, 0),
+        maxStringLength: intOption(viewerProps.maxStringLength, 150),
+        maxCompactStringLength: intOption(viewerProps.maxCompactStringLength, 40),
+        allowedExcessStringLength: intOption(viewerProps.allowedExcessStringLength, 10),
+        maxPropertyLength: intOption(viewerProps.maxPropertyLength, Infinity),
+        maxCompactPropertyLength: intOption(viewerProps.maxCompactPropertyLength, 35),
+    });
 
     $effect(() => {
         const source = data;
@@ -152,11 +178,23 @@
         }
     });
 
-    function resolveViews(ids: readonly JsonInspectorView[], rawDisabledReason: string | null): ViewRegistration[] {
+    function resolveViews(
+        ids: readonly JsonInspectorView[],
+        rawDisabledReason: string | null,
+        tableDisabledReason: string | null,
+    ): ViewRegistration[] {
         const unique = new Set(ids);
         const resolved = BUILT_IN_VIEWS
             .filter(candidate => unique.has(candidate.id))
-            .map(candidate => candidate.id === 'raw' ? { ...candidate, disabledReason: rawDisabledReason } : candidate);
+            .map((candidate) => {
+                if (candidate.id === 'raw') {
+                    return { ...candidate, disabledReason: rawDisabledReason };
+                }
+                if (candidate.id === 'table') {
+                    return { ...candidate, disabledReason: tableDisabledReason };
+                }
+                return candidate;
+            });
         if (!resolved.some(candidate => candidate.id === 'tree')) {
             resolved.unshift(BUILT_IN_VIEWS[0]);
         }
@@ -226,6 +264,22 @@
             return `Raw generation failed with ${count} diagnostic${count === 1 ? '' : 's'}.`;
         }
         return result.status === 'capped' || result.status === 'cancelled' ? result.reason : '';
+    }
+
+    function normalizedTableMatch(primary: unknown, fallback: unknown): RegExp | string | null {
+        const query = normalizeSearchQuery(primary);
+        if (query !== null) {
+            return query;
+        }
+        return isRegExp(fallback) || typeof fallback === 'string' ? fallback : null;
+    }
+
+    function updateTableWindow() {
+        tableVersion++;
+        const disabledReason = tableModel.snapshot().disabledReason;
+        if (disabledReason) {
+            viewStatus = disabledReason;
+        }
     }
 
     function viewReasonId(candidate: JsonInspectorView): string {
@@ -374,6 +428,25 @@
             hidden={activeView !== 'raw'}
         >
             <RawView text={rawResult.text} />
+        </div>
+    {/if}
+    {#if tableSnapshot.disabledReason === null}
+        <div
+            class='sjd-inspector-view'
+            data-view-panel='table'
+            aria-label='Table view'
+            hidden={activeView !== 'table'}
+        >
+            <TableView
+                currentSearchPath={searchState.currentPath}
+                model={tableModel}
+                onSelect={updateSelectedPath}
+                onWindowChange={updateTableWindow}
+                options={tableOptions}
+                selectedPath={sharedSelectedPath}
+                snapshot={tableSnapshot}
+                theme={inspectorTheme}
+            />
         </div>
     {/if}
 </div>

@@ -1,5 +1,6 @@
 import type { JsonPath } from '../types.js';
 import type { RawDiagnostic, RawDiagnosticCode } from './types.js';
+import { hasNativeObjectSource } from '../native-object.js';
 import { pathToPointer } from '../utils.js';
 
 export const DEFAULT_MAX_RAW_BYTES = 12 * 1024 * 1024;
@@ -383,7 +384,7 @@ function isPlainRecordPrototype(prototype: object | null, path: JsonPath): boole
         return false;
     }
     try {
-        return Function.prototype.toString.call(constructor.value) === Function.prototype.toString.call(Object);
+        return hasNativeObjectSource(constructor.value);
     }
     catch {
         fail('proxy', 'Object constructor inspection failed.', path);

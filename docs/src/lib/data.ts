@@ -12,6 +12,14 @@ export const quickStart = {
     },
 };
 
+export const inspectorRows = [
+    { id: 101, name: 'Ada', role: 'maintainer', profile: { active: true } },
+    { id: 102, name: 'Grace', role: 'reviewer', profile: { active: true } },
+    { id: 103, name: 'Linus', role: 'contributor', profile: { active: false } },
+    { id: 104, name: 'Margaret', role: 'maintainer', profile: { active: true } },
+    { id: 105, name: 'Edsger', role: 'reviewer', profile: { active: false } },
+];
+
 export const nested = {
     app: {
         server: {

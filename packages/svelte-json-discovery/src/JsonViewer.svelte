@@ -7,7 +7,7 @@
     import { safeErrorMessage } from './collection.js';
     import { createJsonViewerNode } from './node.js';
     import SchemaTooltip from './SchemaTooltip.svelte';
-    import { searchJson } from './search.js';
+    import { normalizeSearchQuery, searchJson } from './search.js';
     import { intOption, isValueExpandable, listLimit } from './struct-helpers.js';
     import { CONTEXT_KEY } from './types.js';
     import { copyText, isRegExp, objectToString, pathKey, pathStartsWith, pathToPointer, pathToQuery, samePath } from './utils.js';
@@ -270,7 +270,7 @@
     const effectiveSearch = $derived<RegExp | string | null>(
         search === undefined
             ? (localSearch.trim() === '' ? null : localSearch)
-            : (isRegExp(search) || typeof search === 'string') && String(search) !== '' ? search : null,
+            : normalizeSearchQuery(search),
     );
 
     const options: StructOptions = $derived({

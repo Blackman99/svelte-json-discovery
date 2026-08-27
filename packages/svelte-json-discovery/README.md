@@ -75,9 +75,9 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 
 ### Optional Inspector shell
 
-Import the toolbar and shared inspection state from the optional subpath. Tree
-and strict Raw are available now; Table and Diff remain visible with accessible
-unavailable reasons until their optional implementations are added.
+Import the toolbar and shared inspection state from the optional subpath. Tree,
+strict Raw and automatic object-array Table are available now; Diff remains
+visible with an accessible unavailable reason.
 
 ```svelte
 <script lang='ts'>
@@ -88,7 +88,7 @@ unavailable reasons until their optional implementations are added.
 </script>
 
 <JsonInspector
-    data={{ hello: 'world' }}
+    data={[{ id: 1, name: 'Ada' }, { id: 2, name: 'Grace', meta: { active: true } }]}
     {view}
     onViewChange={next => view = next}
     maxRawBytes={12 * 1024 * 1024}
@@ -110,6 +110,15 @@ diagnostic returns to Tree and focuses the affected node. Generation is
 cooperative and cancellable; `maxRawBytes` limits retained UTF-8 output and
 defaults to 12 MB. `RawDiagnostic` and `RawDiagnosticCode` are exported from the
 Inspector subpath for integrations that need the stable diagnostic vocabulary.
+
+Table is enabled when the currently loaded array window contains only plain
+object rows. Automatic columns follow deterministic first-seen key order across
+that window; nested values use the existing compact renderer rather than being
+flattened. Row and cell selection use the same `JsonPath` state as Tree, and
+search matches retain their path and node metadata in cells. The initial batch
+uses `limit` (50 by default); Show more reads only the next batch and keeps both
+data access and DOM growth bounded. Controlled columns, sorting and export are
+introduced by the advanced Table API separately.
 
 ### Search and programmatic control
 

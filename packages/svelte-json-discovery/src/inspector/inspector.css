@@ -112,3 +112,69 @@
     background: color-mix(in srgb, currentColor 6%, transparent);
     font: 12px/1.45 var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
+
+.sjd-table-view {
+    display: grid;
+    gap: 8px;
+    min-width: max-content;
+}
+
+.sjd-table-view table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    font: 12px/1.45 var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+.sjd-table-view th,
+.sjd-table-view td {
+    max-width: 320px;
+    border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    padding: 5px 7px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.sjd-table-view thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: color-mix(in srgb, Canvas 94%, currentColor);
+}
+
+.sjd-table-view button {
+    border: 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sjd-table-view .sjd-table-cell-value {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sjd-table-view .sjd-selected {
+    outline: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+    outline-offset: 1px;
+}
+
+.sjd-table-view .sjd-search-current {
+    background: color-mix(in srgb, #ffd54f 38%, transparent);
+}
+
+.sjd-table-missing {
+    opacity: 0.45;
+}
+
+.sjd-table-view .sjd-table-more {
+    justify-self: start;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 4px;
+    padding: 4px 9px;
+}

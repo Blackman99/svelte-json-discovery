@@ -2,7 +2,7 @@
     import type { JsonViewerPlugin } from 'svelte-json-discovery';
     import { JsonViewer } from 'svelte-json-discovery';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
-    import { actionsDemo, bigArray, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
+    import { actionsDemo, bigArray, inspectorRows, nested, packageSchema, quickStart, schemaDemo, searchable, specialTypes, strings, themedData } from './lib/data.js';
     import Example from './lib/Example.svelte';
     import Playground from './lib/Playground.svelte';
     import PropsTable from './lib/PropsTable.svelte';
@@ -138,12 +138,17 @@
   import { JsonInspector } from 'svelte-json-discovery/inspector';
 
   let view = $state<JsonInspectorView>('tree');
+  const rows = [
+    { id: 1, name: 'Ada', profile: { active: true } },
+    { id: 2, name: 'Grace', profile: { active: false } }
+  ];
 <\/script>
 
 <JsonInspector
-  data={data}
+  data={rows}
   {view}
   onViewChange={next => view = next}
+  limit={3}
   maxRawBytes={12 * 1024 * 1024}
   showSearch
 />`;
@@ -325,11 +330,11 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath switches between the existing Tree and an asynchronously generated strict Raw view. Search, selection, active match, controller behavior and per-view scroll stay canonical across the shell.'
+            intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, asynchronous strict Raw and an automatic object-array Table.'
             code={inspectorCode}
-            note='Raw copy is enabled only for complete JSON-compatible data. Unsupported values produce path diagnostics that reveal the affected Tree node; generation is cancellable and capped at 12 MB by default. Table and Diff remain visibly unavailable.'
+            note='Table unions keys from the three loaded rows, renders nested profile values compactly, and reads the next batch only when Show more is used. Diff remains visibly unavailable.'
         >
-            <JsonInspector data={quickStart} expanded={1} showSearch theme={t} />
+            <JsonInspector data={inspectorRows} expanded={1} limit={3} showSearch theme={t} />
         </Example>
 
         <!-- ——— expand depth ——— -->

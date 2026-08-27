@@ -1,9 +1,13 @@
 import type { JsonPath } from './types.js';
-import { isArray, isSet, isTypedArray, objectToString } from './utils.js';
+import { isArray, isRegExp, isSet, isTypedArray, objectToString } from './utils.js';
 
 export interface SearchResult {
     matches: JsonPath[];
     truncated: boolean;
+}
+
+export function normalizeSearchQuery(value: unknown): RegExp | string | null {
+    return (isRegExp(value) || typeof value === 'string') && String(value) !== '' ? value : null;
 }
 
 function matchesText(text: string, query: RegExp | string): boolean {

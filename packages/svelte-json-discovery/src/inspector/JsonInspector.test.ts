@@ -351,6 +351,235 @@ describe('json inspector tree shell', () => {
         expect(screen.getByLabelText('Raw JSON').textContent).toContain('2');
     });
 
+    it('enables Table only for a loaded window of plain-object array rows', async () => {
+        const rendered = render(JsonInspector, {
+            data: { not: 'an array' },
+            views: ['tree', 'table'],
+        });
+        const table = screen.getByRole('button', { name: 'Table' });
+        expect(table.getAttribute('aria-disabled')).toBe('true');
+        expect(document.getElementById(table.getAttribute('aria-describedby') as string)?.textContent).toBe('Table view requires an array of plain-object rows.');
+
+        await rendered.rerender({
+            data: [{ id: 1 }, { id: 2, name: 'second' }],
+            views: ['tree', 'table'],
+        });
+        await waitFor(() => expect(table.getAttribute('aria-disabled')).toBeNull());
+
+        await rendered.rerender({
+            data: [{ id: 1 }, null],
+            views: ['tree', 'table'],
+        });
+        await waitFor(() => expect(document.getElementById(table.getAttribute('aria-describedby') as string)?.textContent).toBe('Table requires every loaded row to be a plain object.'));
+    });
+
+    it('accepts plain-object rows from another realm', async () => {
+        const iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+        const rows = (iframe.contentWindow as Window & typeof globalThis).JSON.parse('[{"id":1}]');
+        render(JsonInspector, { data: rows, views: ['tree', 'table'] });
+
+        expect(screen.getByRole('button', { name: 'Table' }).getAttribute('aria-disabled')).toBeNull();
+        iframe.remove();
+    });
+
+    it('rejects rows with a spoofed Object constructor', () => {
+        const FakeObject = { Object: function Object() {} }.Object;
+        const spoofedPrototype = Object.create(null, {
+            constructor: { configurable: true, value: FakeObject, writable: true },
+        });
+        FakeObject.prototype = spoofedPrototype;
+        const spoofed = Object.assign(Object.create(spoofedPrototype), { id: 1 });
+
+        render(JsonInspector, { data: [spoofed], views: ['tree', 'table'] });
+
+        const table = screen.getByRole('button', { name: 'Table' });
+        expect(table.getAttribute('aria-disabled')).toBe('true');
+        expect(document.getElementById(table.getAttribute('aria-describedby') as string)?.textContent).toBe('Table requires every loaded row to be a plain object.');
+    });
+
+    it('builds deterministic window columns and renders nested cells compactly', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            data: [
+                { id: 1, profile: { name: 'Ada' } },
+                { name: 'second', id: 2 },
+            ],
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const table = screen.getByRole('table', { name: 'JSON table' });
+
+        expect(within(table).getAllByRole('columnheader').map(header => header.textContent)).toEqual(['Row', 'id', 'profile', 'name']);
+        const profile = within(table).getByRole('button', { name: 'Select cell /0/profile' });
+        expect(profile.textContent).toBe('{…}');
+        expect(profile.getAttribute('data-json-path')).toBe('[0,"profile"]');
+        expect(profile.getAttribute('data-node-kind')).toBe('object');
+        expect(profile.getAttribute('data-json-pointer')).toBe('/0/profile');
+    });
+
+    it('synchronizes canonical row and cell selection between Table and Tree', async () => {
+        const user = userEvent.setup();
+        const selections: (readonly (string | number)[] | null)[] = [];
+        render(JsonInspector, {
+            data: [{ id: 1, profile: { name: 'Ada' } }, { id: 2 }],
+            expanded: 3,
+            views: ['tree', 'table'],
+            onSelectedPathChange: path => selections.push(path),
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        const cell = screen.getByRole('button', { name: 'Select cell /0/profile' });
+        await user.click(cell);
+        expect(selections.at(-1)).toEqual([0, 'profile']);
+        expect(cell.getAttribute('aria-pressed')).toBe('true');
+        await user.click(screen.getByRole('button', { name: 'Tree' }));
+        expect(document.querySelector('[data-json-path="[0,\\"profile\\"]"]')?.getAttribute('aria-selected')).toBe('true');
+
+        const treeCell = [...document.querySelectorAll<HTMLElement>('[data-json-path]')]
+            .find(node => node.getAttribute('data-json-path') === JSON.stringify([1, 'id']));
+        await user.click(treeCell as HTMLElement);
+        expect(selections.at(-1)).toEqual([1, 'id']);
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        expect(screen.getByRole('button', { name: 'Select cell /1/id' }).getAttribute('aria-pressed')).toBe('true');
+        await user.click(screen.getByRole('button', { name: 'Select row 1' }));
+        expect(selections.at(-1)).toEqual([1]);
+    });
+
+    it('keeps search and node metadata visible in Table cells', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            data: [{ name: 'Ada' }, { name: 'Grace' }],
+            views: ['tree', 'table'],
+            showSearch: true,
+        });
+        await user.type(screen.getByRole('searchbox', { name: 'Search JSON' }), 'grace');
+        await waitFor(() => expect(screen.getByText('1 / 1')).not.toBeNull());
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        const cell = screen.getByRole('button', { name: 'Select cell /1/name' });
+        expect(cell.classList.contains('sjd-search-current')).toBe(true);
+        expect(within(cell).getByText('Grace').classList.contains('match')).toBe(true);
+        expect(cell.getAttribute('data-node-kind')).toBe('string');
+    });
+
+    it('uses the Tree search semantics for whitespace-only Table searches', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            data: [{ name: 'Ada Lovelace' }],
+            search: ' ',
+            views: ['tree', 'table'],
+        });
+        await waitFor(() => expect(document.querySelector('.sjd-inspector')?.getAttribute('data-active-path')).toBe('[0,"name"]'));
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        const cell = screen.getByRole('button', { name: 'Select cell /0/name' });
+        expect(cell.classList.contains('sjd-search-current')).toBe(true);
+        expect(cell.querySelector('.match')?.textContent).toBe(' ');
+    });
+
+    it('localizes throwing Table getters in compact error cells', async () => {
+        const user = userEvent.setup();
+        let getterReads = 0;
+        const row = Object.defineProperty({}, 'broken', {
+            enumerable: true,
+            get() {
+                getterReads++;
+                throw new Error('cell blocked');
+            },
+        });
+        render(JsonInspector, { data: [row], views: ['tree', 'table'] });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+
+        const cell = screen.getByRole('button', { name: 'Select cell /0/broken' });
+        expect(cell.textContent).toBe('[Thrown: cell blocked]');
+        expect(cell.getAttribute('data-node-kind')).toBe('error');
+        expect(getterReads).toBeGreaterThan(0);
+    });
+
+    it('bounds Table row reads and DOM growth to the loaded window', async () => {
+        const user = userEvent.setup();
+        let rowReads = 0;
+        const target: unknown[] = [];
+        target.length = 1_000_000;
+        const data = new Proxy(target, {
+            getOwnPropertyDescriptor(array, key) {
+                if (typeof key === 'string' && /^\d+$/.test(key)) {
+                    rowReads++;
+                    return { configurable: true, enumerable: true, value: { id: Number(key) }, writable: true };
+                }
+                return Reflect.getOwnPropertyDescriptor(array, key);
+            },
+        });
+        render(JsonInspector, {
+            data,
+            expanded: 0,
+            limit: 2,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        const table = screen.getByRole('table', { name: 'JSON table' });
+
+        expect(rowReads).toBe(2);
+        expect(table.querySelectorAll('tbody tr')).toHaveLength(2);
+        await user.click(screen.getByRole('button', { name: 'Show 2 more rows' }));
+        expect(rowReads).toBe(4);
+        expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+    });
+
+    it('does not inspect array rows when Table is not registered', () => {
+        let rowReads = 0;
+        const target: unknown[] = [];
+        target.length = 100;
+        const data = new Proxy(target, {
+            getOwnPropertyDescriptor(array, key) {
+                if (typeof key === 'string' && /^\d+$/.test(key)) {
+                    rowReads++;
+                    return { configurable: true, enumerable: true, value: { id: Number(key) }, writable: true };
+                }
+                return Reflect.getOwnPropertyDescriptor(array, key);
+            },
+        });
+
+        render(JsonInspector, { data, expanded: 0, views: ['tree'] });
+
+        expect(rowReads).toBe(0);
+    });
+
+    it('disables Table when Show more reaches a non-object row', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            data: [{ id: 1 }, { id: 2 }, null],
+            limit: 2,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        await user.click(screen.getByRole('button', { name: 'Show 1 more row' }));
+
+        const table = screen.getByRole('button', { name: 'Table' });
+        await waitFor(() => expect(table.getAttribute('aria-disabled')).toBe('true'));
+        expect(document.getElementById(table.getAttribute('aria-describedby') as string)?.textContent).toBe('Table requires every loaded row to be a plain object.');
+        expect(screen.getByRole('button', { name: 'Tree' }).getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('localizes a revoked array Proxy encountered by Table Show more', async () => {
+        const user = userEvent.setup();
+        const target = [{ id: 1 }, { id: 2 }];
+        const { proxy, revoke } = Proxy.revocable(target, {});
+        render(JsonInspector, {
+            data: proxy,
+            limit: 1,
+            views: ['tree', 'table'],
+        });
+        await user.click(screen.getByRole('button', { name: 'Table' }));
+        revoke();
+
+        await expect(user.click(screen.getByRole('button', { name: 'Show 1 more row' }))).resolves.toBeUndefined();
+        const table = screen.getByRole('button', { name: 'Table' });
+        await waitFor(() => expect(table.getAttribute('aria-disabled')).toBe('true'));
+        expect(document.getElementById(table.getAttribute('aria-describedby') as string)?.textContent).toBe('Table requires every loaded row to be a plain object.');
+    });
+
     it('resets internal selection when the data identity changes', async () => {
         const user = userEvent.setup();
         const selections: (readonly (string | number)[] | null)[] = [];
@@ -548,7 +777,7 @@ describe('json inspector tree shell', () => {
         });
         await user.click(screen.getByRole('button', { name: 'Table' }));
         await waitFor(() => expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('Raw output exceeds the 6 byte limit.'));
-        expect(screen.getByRole('status').textContent).toBe('Table view is not available in this build.');
+        expect(screen.getByRole('status').textContent).toBe('Table view requires an array of plain-object rows.');
     });
 
     it('cancels cooperative Raw work on data replacement without publishing stale output', async () => {

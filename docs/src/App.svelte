@@ -319,9 +319,9 @@
         <Example
             id='inspector'
             title='Inspector shell'
-            intro='The optional Inspector subpath wraps the existing Tree in an accessible, controlled view toolbar. Search, selection, active match and controller behavior stay canonical across the shell.'
+            intro='The optional Inspector subpath switches between the existing Tree and a formatted strict Raw view. Search, selection, active match, controller behavior and per-view scroll stay canonical across the shell.'
             code={inspectorCode}
-            note='Raw, Table and Diff are shown with accessible unavailable reasons in this foundation slice. Restrict the ordered toolbar with the <code>views</code> prop.'
+            note='Raw copy is enabled only for complete JSON-compatible data; special JavaScript values disable it instead of producing pseudo-JSON. Table and Diff remain visibly unavailable. Restrict the toolbar with <code>views</code>.'
         >
             <JsonInspector data={quickStart} expanded={1} showSearch theme={t} />
         </Example>

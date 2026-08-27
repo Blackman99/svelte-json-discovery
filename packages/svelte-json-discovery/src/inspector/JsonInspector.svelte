@@ -2,6 +2,8 @@
     import type { JsonPath, JsonViewerHandle, JsonViewerSearchState } from '../types.js';
     import type { JsonInspectorProps, JsonInspectorView } from './types.js';
     import JsonViewer from '../JsonViewer.svelte';
+    import RawView from './RawView.svelte';
+    import { serializeStrictJson } from './strict-json.js';
     import './inspector.css';
 
     type ViewRegistration = {
@@ -12,7 +14,7 @@
 
     const BUILT_IN_VIEWS: readonly ViewRegistration[] = [
         { id: 'tree', label: 'Tree', disabledReason: null },
-        { id: 'raw', label: 'Raw', disabledReason: 'Raw view is not available in this build.' },
+        { id: 'raw', label: 'Raw', disabledReason: null },
         { id: 'table', label: 'Table', disabledReason: 'Table view is not available in this build.' },
         { id: 'diff', label: 'Diff', disabledReason: 'Diff view is not available in this build.' },
     ];
@@ -52,7 +54,8 @@
     // svelte-ignore state_referenced_locally
     let previousData = data;
 
-    const registeredViews = $derived(resolveViews(views));
+    const rawResult = $derived(serializeStrictJson(data));
+    const registeredViews = $derived(resolveViews(views, rawResult.reason));
     const activeView = $derived(resolveActiveView(view, internalView, registeredViews));
     const sharedSearch = $derived(search === undefined ? internalSearch : search);
     const sharedSelectedPath = $derived(selectedPath === undefined ? internalSelectedPath : selectedPath);
@@ -64,6 +67,9 @@
         }
         if (!registeredViews.some(registration => registration.id === toolbarFocusView)) {
             toolbarFocusView = activeView;
+        }
+        if (viewStatus !== '' && !registeredViews.some(registration => registration.disabledReason === viewStatus)) {
+            viewStatus = '';
         }
     });
 
@@ -77,9 +83,11 @@
         }
     });
 
-    function resolveViews(ids: readonly JsonInspectorView[]): ViewRegistration[] {
+    function resolveViews(ids: readonly JsonInspectorView[], rawDisabledReason: string | null): ViewRegistration[] {
         const unique = new Set(ids);
-        const resolved = BUILT_IN_VIEWS.filter(candidate => unique.has(candidate.id));
+        const resolved = BUILT_IN_VIEWS
+            .filter(candidate => unique.has(candidate.id))
+            .map(candidate => candidate.id === 'raw' ? { ...candidate, disabledReason: rawDisabledReason } : candidate);
         if (!resolved.some(candidate => candidate.id === 'tree')) {
             resolved.unshift(BUILT_IN_VIEWS[0]);
         }
@@ -87,7 +95,7 @@
     }
 
     function initialView(candidate: JsonInspectorView, ids: readonly JsonInspectorView[]): JsonInspectorView {
-        return candidate === 'tree' && ids.includes('tree') ? candidate : 'tree';
+        return ids.includes(candidate) ? candidate : 'tree';
     }
 
     function firstAvailable(registry: readonly ViewRegistration[]): JsonInspectorView {
@@ -228,7 +236,12 @@
         {/each}
     </div>
     {#if viewStatus}<div class='sjd-inspector-status' role='status'>{viewStatus}</div>{/if}
-    <div class='sjd-inspector-view' aria-label='Tree view'>
+    <div
+        class='sjd-inspector-view'
+        data-view-panel='tree'
+        aria-label='Tree view'
+        hidden={activeView !== 'tree'}
+    >
         <JsonViewer
             bind:this={viewer}
             {...viewerProps}
@@ -240,4 +253,14 @@
             onSelectedPathChange={updateSelectedPath}
         />
     </div>
+    {#if rawResult.text !== null}
+        <div
+            class='sjd-inspector-view'
+            data-view-panel='raw'
+            aria-label='Raw view'
+            hidden={activeView !== 'raw'}
+        >
+            <RawView text={rawResult.text} />
+        </div>
+    {/if}
 </div>

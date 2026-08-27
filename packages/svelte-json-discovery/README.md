@@ -75,8 +75,8 @@ Not ported (they depend on the discovery host/runtime): signature popup (𝕊),
 
 ### Optional Inspector shell
 
-Import the toolbar and shared inspection state from the optional subpath. The
-Tree view is available now; Raw, Table and Diff remain visible with accessible
+Import the toolbar and shared inspection state from the optional subpath. Tree
+and strict Raw are available now; Table and Diff remain visible with accessible
 unavailable reasons until their optional implementations are added.
 
 ```svelte
@@ -99,6 +99,12 @@ unavailable reasons until their optional implementations are added.
 Tree search, selected path, active match and controller methods, so existing
 `JsonViewerHandle` integrations can move to the shell without losing Tree
 behavior. The main package entry does not import the optional Inspector graph.
+
+Raw is enabled only when the complete input is representable as strict JSON. It
+formats with two-space indentation and enables copy only for that complete
+output. `undefined`, BigInt, non-finite numbers, sparse arrays, accessors,
+special JavaScript instances and circular references disable Raw rather than
+being replaced with misleading strings or placeholders.
 
 ### Search and programmatic control
 

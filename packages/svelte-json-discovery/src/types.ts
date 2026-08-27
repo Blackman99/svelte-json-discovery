@@ -150,7 +150,7 @@ export interface PopupAction {
     error?: string | false;
     disabled?: boolean;
     groupStart?: boolean;
-    action: () => Promise<void> | void;
+    action: () => Promise<unknown> | void;
 }
 
 export interface JsonViewerApi {

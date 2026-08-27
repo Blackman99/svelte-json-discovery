@@ -205,11 +205,11 @@ export function pathToPointer(path: readonly (string | number)[]): string {
         : `/${path.map(part => String(part).replace(/~/g, '~0').replace(/\//g, '~1')).join('/')}`;
 }
 
-export async function copyText(text: string): Promise<void> {
+export async function copyText(text: string): Promise<boolean> {
     if (navigator.clipboard?.writeText) {
         try {
             await navigator.clipboard.writeText(text);
-            return;
+            return true;
         }
         catch {
             // fall through to the legacy path
@@ -221,13 +221,18 @@ export async function copyText(text: string): Promise<void> {
     el.value = text;
     el.setAttribute('readonly', '');
     el.style.cssText = 'position:absolute;left:-9999px;opacity:0';
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.appendChild(el);
 
     try {
         el.select();
-        document.execCommand('copy');
+        return document.execCommand('copy');
+    }
+    catch {
+        return false;
     }
     finally {
         el.remove();
+        activeElement?.focus();
     }
 }

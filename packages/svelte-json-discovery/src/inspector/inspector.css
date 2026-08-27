@@ -49,4 +49,42 @@
 
 .sjd-inspector-view {
     min-width: 0;
+    max-height: 70vh;
+    overflow: auto;
+}
+
+.sjd-raw-view {
+    display: grid;
+    gap: 6px;
+}
+
+.sjd-raw-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sjd-raw-actions button {
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 4px;
+    padding: 4px 9px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.sjd-raw-actions [role='status'] {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.sjd-raw-view pre {
+    box-sizing: border-box;
+    min-width: max-content;
+    margin: 0;
+    padding: 10px;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    font: 12px/1.45 var(--discovery-monospace-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }

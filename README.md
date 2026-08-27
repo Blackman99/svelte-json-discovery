@@ -50,6 +50,8 @@ pnpm add svelte-json-discovery
   scroll, select and navigate matches through application state or `bind:this`
 - 🧭 **Optional Inspector shell** — import an accessible controlled view toolbar
   from `svelte-json-discovery/inspector` without adding it to the main entry graph
+- 📄 **Strict Raw view** — format and copy only complete JSON-compatible values;
+  extended JavaScript values disable Raw instead of producing pseudo-JSON
 - 📋 **Value actions** — copy JavaScript path, RFC 6901 JSON Pointer, or
   formatted/compact JSON (with byte
   sizes and circular-structure detection), string copy variants

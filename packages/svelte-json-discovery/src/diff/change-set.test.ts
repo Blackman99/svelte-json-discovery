@@ -64,4 +64,46 @@ describe('normalizeChangeSet', () => {
         expect(result.changeSet.changes).toHaveLength(1);
         expect(normalizeChangeSet({ changes: proxy })).toMatchObject({ invalidCount: 1, changeSet: { changes: [] } });
     });
+
+    it('preserves frozen diagnostics, non-standard pointers and truncation metadata', () => {
+        const result = normalizeChangeSet({
+            changes: [{
+                kind: 'moved',
+                path: [0],
+                pointer: null,
+                previousPath: [1],
+                previousPointer: null,
+                diagnostic: { code: 'iterator', message: 'Iterator stopped.' },
+            }],
+            truncated: { reason: 'nodes', limit: 25, path: [2], pointer: null },
+        });
+
+        expect(result.invalidCount).toBe(0);
+        expect(result.changeSet).toEqual({
+            changes: [{
+                kind: 'moved',
+                path: [0],
+                pointer: null,
+                previousPath: [1],
+                previousPointer: null,
+                diagnostic: { code: 'iterator', message: 'Iterator stopped.' },
+            }],
+            truncated: { reason: 'nodes', limit: 25, path: [2], pointer: null },
+        });
+        expect(Object.isFrozen(result.changeSet.changes[0].diagnostic)).toBe(true);
+        expect(Object.isFrozen(result.changeSet.truncated)).toBe(true);
+    });
+
+    it('drops malformed extended metadata without dropping valid changes', () => {
+        const result = normalizeChangeSet({
+            changes: [
+                { kind: 'changed', path: ['ok'], pointer: '/ok' },
+                { kind: 'changed', path: ['bad'], pointer: '/bad', diagnostic: { code: 'unknown', message: 'bad' } },
+            ],
+            truncated: { reason: 'forever', limit: 0, path: [], pointer: '' },
+        });
+
+        expect(result.invalidCount).toBe(2);
+        expect(result.changeSet).toEqual({ changes: [{ kind: 'changed', path: ['ok'], pointer: '/ok' }] });
+    });
 });

@@ -40,6 +40,7 @@
         }
         return result;
     });
+    const diagnosticCount = $derived(changeSet.changes.filter(change => change.diagnostic).length);
 
     onDestroy(() => {
         destroyed = true;
@@ -68,7 +69,7 @@
         }
         catch {
             if (!destroyed && generation === selectionGeneration) {
-                navigationStatus = `Change callback failed: ${change.pointer || '<root>'}`;
+                navigationStatus = `Change callback failed: ${changeLocation(change.pointer, change.path)}`;
             }
             return;
         }
@@ -82,7 +83,7 @@
             return;
         }
         if (!destroyed && generation === selectionGeneration) {
-            navigationStatus = `Change target is unavailable: ${change.pointer || '<root>'}`;
+            navigationStatus = `Change target is unavailable: ${changeLocation(change.pointer, change.path)}`;
         }
     }
 
@@ -138,30 +139,32 @@
     }
 
     function syncMarkers(panel: HTMLElement, set: ChangeSet, side: 'baseline' | 'current') {
-        const byPath: Record<string, ChangeKind[]> = Object.create(null);
+        const byPath: Record<string, Change[]> = Object.create(null);
         for (const change of set.changes) {
             if ((side === 'current' && change.kind === 'removed') || (side === 'baseline' && change.kind === 'added')) {
                 continue;
             }
             const path = side === 'baseline' && change.kind === 'moved' ? change.previousPath : change.path;
             const encoded = JSON.stringify(path);
-            const kinds = byPath[encoded] ?? [];
-            if (!kinds.includes(change.kind)) {
-                kinds.push(change.kind);
-            }
-            byPath[encoded] = kinds;
+            const related = byPath[encoded] ?? [];
+            related.push(change);
+            byPath[encoded] = related;
         }
         for (const node of panel.querySelectorAll<HTMLElement>('[role="treeitem"][data-json-path]')) {
-            const kinds = byPath[node.dataset.jsonPath ?? ''];
+            const related = byPath[node.dataset.jsonPath ?? ''];
             const existing = node.querySelector<HTMLElement>(':scope > .sjd-diff-marker');
-            if (!kinds || kinds.length === 0) {
+            if (!related || related.length === 0) {
                 existing?.remove();
                 continue;
             }
+            const kinds = [...new Set(related.map(change => change.kind))];
             const marker = existing ?? document.createElement('span');
             const labels = kinds.map(titleCase);
             const kindValue = kinds.join(' ');
-            const labelValue = labels.join(', ');
+            const diagnosticMessages = related.flatMap(change => change.diagnostic ? [change.diagnostic.message] : []);
+            const labelValue = diagnosticMessages.length > 0
+                ? `${labels.join(', ')}: ${diagnosticMessages.join('; ')}`
+                : labels.join(', ');
             const textValue = labels.map(label => label[0]).join('');
             marker.className = 'sjd-diff-marker';
             marker.setAttribute('role', 'img');
@@ -186,17 +189,27 @@
     }
 
     function changeLabel(change: Change): string {
-        const current = change.pointer || '<root>';
-        return change.kind === 'moved'
-            ? `Moved ${change.previousPointer || '<root>'} → ${current}`
+        const current = changeLocation(change.pointer, change.path);
+        const label = change.kind === 'moved'
+            ? `Moved ${changeLocation(change.previousPointer, change.previousPath)} → ${current}`
             : `${titleCase(change.kind)} ${current}`;
+        return change.diagnostic ? `${label} — ${change.diagnostic.message}` : label;
+    }
+
+    function changeLocation(pointer: string | null, path: JsonPath): string {
+        return pointer === null ? `non-standard ${JSON.stringify(path)}` : pointer || '<root>';
     }
 </script>
 
 <section class='sjd-diff-summary' aria-label='Diff summary'>
     <div role='status' aria-label='Change counts'>
-        {counts.added} added, {counts.removed} removed, {counts.changed} changed, {counts.moved} moved
+        {counts.added} added, {counts.removed} removed, {counts.changed} changed, {counts.moved} moved{#if diagnosticCount > 0}, {diagnosticCount} diagnostics{/if}
     </div>
+    {#if changeSet.truncated}
+        <div role='status' aria-label='Diff truncation'>
+            Truncated by the {changeSet.truncated.reason} limit ({changeSet.truncated.limit}) at {changeLocation(changeSet.truncated.pointer, changeSet.truncated.path)}.
+        </div>
+    {/if}
     {#if changeSet.changes.length > 0}
         <ol>
             {#each changeSet.changes as change, index (`${change.kind}:${change.pointer}:${index}`)}

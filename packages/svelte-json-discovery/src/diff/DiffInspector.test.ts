@@ -133,6 +133,72 @@ describe('json inspector Diff view', () => {
 
         expect(document.activeElement?.getAttribute('data-json-path')).not.toBe('["replacement"]');
     });
+
+    it('uses array entity identity in the public Inspector without index cascades', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            compareTo: [{ id: 'a', value: 1 }, { id: 'b', value: 1 }],
+            data: [{ id: 'b', value: 2 }, { id: 'a', value: 1 }],
+            expanded: 2,
+            itemIdentity: item => (item as { id: string }).id,
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Diff' }));
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Moved /1 → /0' })).not.toBeNull());
+        expect(screen.getByRole('button', { name: 'Changed /0/value' })).not.toBeNull();
+        expect(screen.getByRole('button', { name: 'Moved /0 → /1' })).not.toBeNull();
+        expect(screen.queryByRole('button', { name: 'Changed /0/id' })).toBeNull();
+        expect(within(screen.getByRole('region', { name: 'Diff summary' })).getAllByRole('button')).toHaveLength(3);
+    });
+
+    it('announces truncation and retains only the configured result window', async () => {
+        const user = userEvent.setup();
+        render(JsonInspector, {
+            compareTo: [],
+            data: Array.from({ length: 20 }, (_, index) => index),
+            maxDiffResults: 3,
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Diff' }));
+        await waitFor(() => expect(screen.getByRole('status', { name: 'Diff truncation' })).not.toBeNull());
+        const summary = screen.getByRole('region', { name: 'Diff summary' });
+        expect(within(summary).getAllByRole('button')).toHaveLength(3);
+        expect(screen.getByRole('status', { name: 'Diff status' }).textContent).toContain('results limit (3)');
+    });
+
+    it('suppresses a stale large comparison after data and baseline replacement', async () => {
+        const user = userEvent.setup();
+        const first = Array.from({ length: 5_000 }, (_, index) => ({ index, value: 1 }));
+        const firstBaseline = Array.from({ length: 5_000 }, (_, index) => ({ index, value: 0 }));
+        const rendered = render(JsonInspector, { compareTo: firstBaseline, data: first });
+
+        await user.click(screen.getByRole('button', { name: 'Diff' }));
+        expect(screen.getByRole('status', { name: 'Diff status' }).textContent).toContain('Comparing');
+        await rendered.rerender({ compareTo: { latest: 0 }, data: { latest: 1 } });
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Changed /latest' })).not.toBeNull());
+        expect(within(screen.getByRole('region', { name: 'Diff summary' })).getAllByRole('button')).toHaveLength(1);
+        expect(screen.getByRole('status', { name: 'Diff status' }).textContent).toBe('Comparison complete.');
+    });
+
+    it('presents a hostile getter as a local accessible diagnostic change', async () => {
+        const user = userEvent.setup();
+        let reads = 0;
+        const data = Object.defineProperty({}, 'blocked', {
+            enumerable: true,
+            get() {
+                reads++;
+                throw new Error('must stay unread');
+            },
+        });
+        render(JsonInspector, { compareTo: { blocked: 1 }, data, expanded: 1 });
+
+        await user.click(screen.getByRole('button', { name: 'Diff' }));
+        const diagnostic = await screen.findByRole('button', { name: /Changed \/blocked — Getter properties are not evaluated/ });
+        expect(diagnostic).not.toBeNull();
+        expect(screen.getByRole('status', { name: 'Change counts' }).textContent).toContain('1 diagnostics');
+        expect(reads).toBeLessThanOrEqual(2);
+    });
 });
 
 function markerAt(region: HTMLElement, path: readonly (string | number)[]): HTMLElement | null {

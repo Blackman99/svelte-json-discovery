@@ -1,10 +1,22 @@
 import type { Component, ComponentProps, Snippet } from 'svelte';
-import type { Change, ChangeSet } from '../diff/types.js';
+import type { Change, ChangeSet, DiffItemIdentityResolver, DiffItemIdentityRule } from '../diff/types.js';
 import type JsonViewer from '../JsonViewer.svelte';
 import type { JsonPath, JsonViewerHandle, JsonViewerNode } from '../types.js';
 import type { JsonValidator, ValidationIssue } from '../validation/types.js';
 
-export type { Change, ChangeKind, ChangeSet } from '../diff/types.js';
+export type {
+    Change,
+    ChangeKind,
+    ChangeSet,
+    DiffDiagnostic,
+    DiffDiagnosticCode,
+    DiffItemIdentity,
+    DiffItemIdentityContext,
+    DiffItemIdentityResolver,
+    DiffItemIdentityRule,
+    DiffTruncation,
+    DiffTruncationReason,
+} from '../diff/types.js';
 export type { JsonValidator, ValidationIssue, ValidationIssueSeverity } from '../validation/types.js';
 
 export type JsonInspectorView = 'tree' | 'raw' | 'table' | 'diff';
@@ -89,6 +101,16 @@ export type JsonInspectorProps = ComponentProps<typeof JsonViewer> & {
     changeSet?: ChangeSet;
     /** Return false to replace the default best-path navigation; otherwise augments it. */
     onChangeSelect?: (change: Change) => boolean | Promise<boolean | void> | void;
+    /** Global entity identity resolver for array Diff. Nullish identities fall back to index comparison. */
+    itemIdentity?: DiffItemIdentityResolver;
+    /** Exact array-path identity rules. The first matching rule overrides the global resolver. */
+    itemIdentityRules?: readonly DiffItemIdentityRule[];
+    /** Maximum inspected Diff operations before a truncated result is published. */
+    maxDiffNodes?: number;
+    /** Maximum structural Diff depth before a truncated result is published. */
+    maxDiffDepth?: number;
+    /** Maximum retained Diff changes before a truncated result is published. */
+    maxDiffResults?: number;
     /** Maximum retained UTF-8 bytes for complete Raw output. */
     maxRawBytes?: number;
     /** Controlled Table columns. Omit to derive automatic columns from the loaded window. */

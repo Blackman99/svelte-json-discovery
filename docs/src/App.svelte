@@ -32,6 +32,7 @@
             { path: [4, 'profile', 'active'], pointer: '/4/profile/active', severity: 'error', code: 'inactive-reviewer', message: 'Reviewer must be active', source: 'async-policy' },
         ];
     };
+    const inspectorIdentity = (item: unknown) => item && typeof item === 'object' ? Reflect.get(item, 'id') as number : undefined;
 
     const navItems: [string, string][] = [
         ['install', 'Install'],
@@ -177,6 +178,7 @@
   const baseline = [
     { id: 1, name: 'Ada', profile: { active: false } }
   ];
+  const itemIdentity = (item: unknown) => (item as { id: number }).id;
   const issues: ValidationIssue[] = [{
     path: [1, 'name'],
     pointer: '/1/name',
@@ -198,6 +200,7 @@
 <JsonInspector
   data={rows}
   compareTo={baseline}
+  {itemIdentity}
   {view}
   onViewChange={next => view = next}
   {tableColumns}
@@ -387,9 +390,9 @@
             title='Inspector shell'
             intro='The optional Inspector subpath shares search, selection and canonical paths across Tree, strict Raw, Table and explicit baseline Diff, while precomputed and cancellable async validation feed one issue workflow.'
             code={inspectorCode}
-            note='Open Diff to compare the current rows with the explicit baseline, then activate a change to reveal it. The validation summary combines two precomputed issues with one async-policy issue; optional adapters stay in separate entry points.'
+            note='Open Diff to see identity-aware moves, field changes and additions without an index cascade, then activate a change to reveal it. Comparison is cancellable and capped; validation remains a separate shared workflow.'
         >
-            <JsonInspector compareTo={inspectorBaseline} data={inspectorRows} expanded={1} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
+            <JsonInspector compareTo={inspectorBaseline} data={inspectorRows} expanded={1} itemIdentity={inspectorIdentity} issues={inspectorIssues} limit={3} showSearch tableColumns={inspectorColumns} theme={t} validate={inspectorValidate} />
         </Example>
 
         <!-- ——— expand depth ——— -->

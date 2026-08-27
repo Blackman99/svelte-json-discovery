@@ -21,8 +21,8 @@ export const inspectorRows = [
 ];
 
 export const inspectorBaseline = [
-    { id: 101, name: 'Ada', role: 'reviewer', profile: { active: true } },
     { id: 102, name: 'Grace', role: 'reviewer', profile: { active: true } },
+    { id: 101, name: 'Ada', role: 'reviewer', profile: { active: true } },
     { id: 103, name: 'Linus', role: 'contributor', profile: { active: true } },
     { id: 104, name: 'Margaret', role: 'maintainer', profile: { active: true } },
 ];

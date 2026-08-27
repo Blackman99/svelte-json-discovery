@@ -44,6 +44,11 @@
         onViewChange,
         changeSet,
         onChangeSelect,
+        itemIdentity,
+        itemIdentityRules,
+        maxDiffNodes,
+        maxDiffDepth,
+        maxDiffResults,
         search,
         onSearchChange,
         onSearchStateChange,
@@ -87,6 +92,13 @@
     let tableVersion = $state(0);
     let validationRunGeneration = 0;
     let validationRestarted = false;
+    let diffRunGeneration = 0;
+    let diffRestarted = false;
+    let diffComparison = $state<{
+        announcement: string;
+        changeSet: ChangeSet;
+        status: 'cancelled' | 'failure' | 'idle' | 'pending' | 'success' | 'truncated';
+    }>({ announcement: '', changeSet: EMPTY_CHANGE_SET, status: 'idle' });
     let asyncValidation = $state<{
         announcement: string;
         state: ValidationState;
@@ -116,6 +128,7 @@
 
     onDestroy(() => {
         destroyed = true;
+        diffRunGeneration++;
         validationSelectionGeneration++;
     });
 
@@ -129,9 +142,7 @@
     const hasExplicitBaseline = $derived(Object.hasOwn(viewerProps, 'compareTo'));
     const comparisonBaseline = $derived(viewerProps.compareTo);
     const normalizedProvidedChanges = $derived(changeSet === undefined ? null : normalizeChangeSet(changeSet));
-    const activeChangeSet = $derived(normalizedProvidedChanges?.changeSet ?? (
-        hasExplicitBaseline ? compareJson(data, comparisonBaseline) : EMPTY_CHANGE_SET
-    ));
+    const activeChangeSet = $derived(normalizedProvidedChanges?.changeSet ?? diffComparison.changeSet);
     const diffDisabledReason = $derived(
         changeSet === undefined && !hasExplicitBaseline ? 'Diff view requires compareTo or a ChangeSet.' : null,
     );
@@ -160,6 +171,72 @@
         precomputedValidationState,
         asyncValidation.state,
     ));
+
+    $effect(() => {
+        const source = data;
+        const baseline = comparisonBaseline;
+        const globalIdentity = itemIdentity;
+        const pathIdentities = itemIdentityRules;
+        const nodeLimit = maxDiffNodes;
+        const depthLimit = maxDiffDepth;
+        const resultLimit = maxDiffResults;
+        const shouldCompare = hasExplicitBaseline && changeSet === undefined;
+        if (!shouldCompare) {
+            diffRunGeneration++;
+            diffComparison = {
+                announcement: diffRestarted ? 'Comparison cancelled.' : '',
+                changeSet: EMPTY_CHANGE_SET,
+                status: diffRestarted ? 'cancelled' : 'idle',
+            };
+            diffRestarted = false;
+            return;
+        }
+
+        const generation = ++diffRunGeneration;
+        const controller = new AbortController();
+        const restarted = diffRestarted;
+        let settled = false;
+        diffRestarted = false;
+        diffComparison = {
+            announcement: restarted ? 'Comparison cancelled. Comparing…' : 'Comparing…',
+            changeSet: EMPTY_CHANGE_SET,
+            status: 'pending',
+        };
+        void compareJson(source, baseline, {
+            signal: controller.signal,
+            itemIdentity: globalIdentity,
+            itemIdentityRules: pathIdentities,
+            maxNodes: nodeLimit,
+            maxDepth: depthLimit,
+            maxResults: resultLimit,
+        }).then((result) => {
+            settled = true;
+            if (destroyed || controller.signal.aborted || generation !== diffRunGeneration) {
+                return;
+            }
+            diffComparison = {
+                announcement: result.truncated ? truncationAnnouncement(result.truncated) : 'Comparison complete.',
+                changeSet: result,
+                status: result.truncated ? 'truncated' : 'success',
+            };
+        }).catch((error: unknown) => {
+            settled = true;
+            if (destroyed || controller.signal.aborted || generation !== diffRunGeneration) {
+                return;
+            }
+            diffComparison = {
+                announcement: `Comparison failed: ${errorMessage(error)}`,
+                changeSet: EMPTY_CHANGE_SET,
+                status: 'failure',
+            };
+        });
+        return () => {
+            controller.abort();
+            if (!settled) {
+                diffRestarted = true;
+            }
+        };
+    });
 
     $effect.pre(() => {
         const source = data;
@@ -535,6 +612,11 @@
         }
     }
 
+    function truncationAnnouncement(truncation: NonNullable<ChangeSet['truncated']>): string {
+        const location = truncation.pointer === null ? 'a non-standard path' : truncation.pointer || '<root>';
+        return `Comparison truncated by the ${truncation.reason} limit (${truncation.limit}) at ${location}.`;
+    }
+
     function normalizedTableMatch(primary: unknown, fallback: unknown): RegExp | string | null {
         const query = normalizeSearchQuery(primary);
         if (query !== null) {
@@ -746,6 +828,9 @@
             data-view-panel='diff'
             aria-label='Diff view'
         >
+            {#if changeSet === undefined && diffComparison.announcement}
+                <div class='sjd-inspector-status' role='status' aria-label='Diff status'>{diffComparison.announcement}</div>
+            {/if}
             <DiffView
                 baseline={comparisonBaseline}
                 changeSet={activeChangeSet}

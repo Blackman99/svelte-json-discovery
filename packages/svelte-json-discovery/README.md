@@ -101,33 +101,46 @@ Tree search, selected path, active match and controller methods, so existing
 `JsonViewerHandle` integrations can move to the shell without losing Tree
 behavior. The main package entry does not import the optional Inspector graph.
 
-Diff is enabled by an explicit `compareTo` baseline. The built-in comparator
-walks primitives, plain objects in sorted key order and arrays by index without
-modifying either input. An application can instead supply a stable `ChangeSet`;
-when present, it bypasses comparison and can represent `added`, `removed`,
-`changed`, or `moved` paths. Activating a change focuses the exact current or
-baseline node when possible and otherwise falls back to its nearest ancestor.
+Diff is enabled by an explicit `compareTo` baseline. The built-in comparator is
+asynchronous, cooperative and cancellable. It walks primitives and plain
+objects deterministically, compares arrays by index by default, supports entity
+identity rules, and understands Date, RegExp, Map, Set, cycles and shared
+references. Getter, Proxy, iterator and identity failures become local
+diagnostic changes. Activating a change focuses the exact current or baseline
+node when possible and otherwise falls back to its nearest ancestor.
 
 ```svelte
 <script lang='ts'>
-    import type { ChangeSet } from 'svelte-json-discovery/diff';
-    import { compareJson } from 'svelte-json-discovery/diff';
     import { JsonInspector } from 'svelte-json-discovery/inspector';
 
     const baseline = { users: [{ id: 1, role: 'reviewer' }] };
     const current = { users: [{ id: 1, role: 'maintainer' }, { id: 2, role: 'reviewer' }] };
-    const changeSet: ChangeSet = compareJson(current, baseline);
+    const identifyUser = (item: unknown) => (item as { id: number }).id;
 </script>
 
-<JsonInspector data={current} compareTo={baseline} {changeSet} />
+<JsonInspector
+    data={current}
+    compareTo={baseline}
+    itemIdentityRules={[{ path: ['users'], resolve: identifyUser }]}
+    maxDiffNodes={100_000}
+    maxDiffDepth={100}
+    maxDiffResults={10_000}
+/>
 ```
 
+Applications can precompute the same stable protocol with
+`await compareJson(current, baseline, options)` from
+`svelte-json-discovery/diff`, or supply their own `ChangeSet`. A supplied set
+fully bypasses built-in comparison.
+
 Every standard location carries both a canonical `JsonPath` and RFC 6901
-Pointer. A moved change additionally carries `previousPath` and
-`previousPointer`. Malformed precomputed entries are ignored with a local
+Pointer. Map and Set positions use `pointer: null` because they are not standard
+JSON locations. A moved change additionally carries `previousPath` and
+`previousPointer`; a localized failure carries `diagnostic`, and capped output
+carries `truncated`. Malformed precomputed entries are ignored with a local
 diagnostic. `onChangeSelect` runs before default navigation; return `false` to
-replace it. `Change`, `ChangeKind`, `ChangeSet`, `compareJson`, and
-`normalizeChangeSet` are exported from the dependency-free `./diff` subpath.
+replace it. All stable comparison types, `compareJson`, and `normalizeChangeSet`
+are exported from the dependency-free `./diff` subpath.
 
 Raw is generated asynchronously and enabled only when the complete input is
 representable as strict JSON. It formats with two-space indentation and enables

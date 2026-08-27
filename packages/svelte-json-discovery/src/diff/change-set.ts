@@ -1,5 +1,5 @@
 import type { JsonPath } from '../types.js';
-import type { Change, ChangeKind, ChangeSet } from './types.js';
+import type { Change, ChangeKind, ChangeSet, DiffDiagnostic, DiffDiagnosticCode, DiffTruncation, DiffTruncationReason } from './types.js';
 import { pathToPointer } from '../utils.js';
 
 export interface NormalizedChangeSet {
@@ -8,6 +8,8 @@ export interface NormalizedChangeSet {
 }
 
 const CHANGE_KINDS = new Set<ChangeKind>(['added', 'removed', 'changed', 'moved']);
+const DIAGNOSTIC_CODES = new Set<DiffDiagnosticCode>(['comparison', 'getter', 'identity', 'iterator', 'proxy']);
+const TRUNCATION_REASONS = new Set<DiffTruncationReason>(['depth', 'nodes', 'results']);
 const MISSING = Symbol('missing data property');
 
 export function normalizeChangeSet(value: unknown): NormalizedChangeSet {
@@ -38,27 +40,80 @@ export function normalizeChangeSet(value: unknown): NormalizedChangeSet {
         }
     }
 
-    return { changeSet: freezeChangeSet(changes), invalidCount };
+    const truncationValue = readDataProperty(value, 'truncated');
+    const truncation = truncationValue === MISSING ? undefined : normalizeTruncation(truncationValue);
+    if (truncationValue !== MISSING && truncation === null) {
+        invalidCount++;
+    }
+    return { changeSet: freezeChangeSet(changes, truncation ?? undefined), invalidCount };
 }
 
 function normalizeChange(value: unknown): Change | null {
     const kind = readDataProperty(value, 'kind');
     const path = normalizePath(readDataProperty(value, 'path'));
-    const pointer = readDataProperty(value, 'pointer');
-    if (typeof kind !== 'string' || !CHANGE_KINDS.has(kind as ChangeKind) || path === null || pointer !== pathToPointer(path)) {
+    const pointer = path === null ? MISSING : normalizePointer(readDataProperty(value, 'pointer'), path);
+    const diagnosticValue = readDataProperty(value, 'diagnostic');
+    const valueDiagnostic = diagnosticValue === MISSING ? undefined : normalizeDiagnostic(diagnosticValue);
+    if (
+        typeof kind !== 'string'
+        || !CHANGE_KINDS.has(kind as ChangeKind)
+        || path === null
+        || pointer === MISSING
+        || (diagnosticValue !== MISSING && valueDiagnostic === null)
+    ) {
         return null;
     }
 
     if (kind === 'moved') {
         const previousPath = normalizePath(readDataProperty(value, 'previousPath'));
-        const previousPointer = readDataProperty(value, 'previousPointer');
-        if (previousPath === null || previousPointer !== pathToPointer(previousPath)) {
+        const previousPointer = previousPath === null
+            ? MISSING
+            : normalizePointer(readDataProperty(value, 'previousPointer'), previousPath);
+        if (previousPath === null || previousPointer === MISSING) {
             return null;
         }
-        return Object.freeze({ kind, path, pointer, previousPath, previousPointer });
+        return Object.freeze({
+            kind,
+            path,
+            pointer,
+            previousPath,
+            previousPointer,
+            ...(valueDiagnostic ? { diagnostic: valueDiagnostic } : {}),
+        }) as Change;
     }
 
-    return Object.freeze({ kind, path, pointer }) as Change;
+    return Object.freeze({ kind, path, pointer, ...(valueDiagnostic ? { diagnostic: valueDiagnostic } : {}) }) as Change;
+}
+
+function normalizeDiagnostic(value: unknown): DiffDiagnostic | null {
+    const code = readDataProperty(value, 'code');
+    const message = readDataProperty(value, 'message');
+    return typeof code === 'string' && DIAGNOSTIC_CODES.has(code as DiffDiagnosticCode) && typeof message === 'string'
+        ? Object.freeze({ code: code as DiffDiagnosticCode, message })
+        : null;
+}
+
+function normalizeTruncation(value: unknown): DiffTruncation | null {
+    const reason = readDataProperty(value, 'reason');
+    const limit = readDataProperty(value, 'limit');
+    const path = normalizePath(readDataProperty(value, 'path'));
+    const pointer = path === null ? MISSING : normalizePointer(readDataProperty(value, 'pointer'), path);
+    if (
+        typeof reason !== 'string'
+        || !TRUNCATION_REASONS.has(reason as DiffTruncationReason)
+        || typeof limit !== 'number'
+        || !Number.isSafeInteger(limit)
+        || limit < 1
+        || path === null
+        || pointer === MISSING
+    ) {
+        return null;
+    }
+    return Object.freeze({ reason: reason as DiffTruncationReason, limit, path, pointer });
+}
+
+function normalizePointer(value: unknown, path: JsonPath): string | null | typeof MISSING {
+    return value === null || value === pathToPointer(path) ? value : MISSING;
 }
 
 function normalizePath(value: unknown): JsonPath | null {
@@ -131,6 +186,6 @@ function readDataProperty(value: unknown, key: string): unknown {
     }
 }
 
-function freezeChangeSet(changes: Change[]): ChangeSet {
-    return Object.freeze({ changes: Object.freeze(changes) });
+function freezeChangeSet(changes: Change[], truncated?: DiffTruncation): ChangeSet {
+    return Object.freeze({ changes: Object.freeze(changes), ...(truncated ? { truncated } : {}) });
 }

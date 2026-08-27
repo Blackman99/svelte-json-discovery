@@ -55,9 +55,9 @@ pnpm add svelte-json-discovery
 - 📊 **Configurable object-array Table** — automatic or controlled columns,
   compact/custom cells, shared paths, bounded Show more rendering and explicit
   current-window vs host-controlled full-data sorting
-- ↔️ **Explicit baseline Diff** — deterministic object/array comparison or a
-  host-supplied stable ChangeSet, with accessible summaries, inline markers and
-  best-path navigation across current and baseline trees
+- ↔️ **Safe bounded Diff** — explicit baselines or host-supplied ChangeSets,
+  entity-aware array moves, Date/RegExp/Map/Set semantics, cycle and hostile
+  value protection, accessible markers, cancellation and configurable caps
 - ✅ **Validation workflows** — precomputed or cancellable async issues,
   accessible summaries, Tree/Table markers, path navigation and optional
   Ajv, Zod and Valibot adapters

@@ -27,6 +27,11 @@
         ['compareTo', 'unknown', '—', 'Explicit Inspector Diff baseline'],
         ['changeSet', 'ChangeSet', '—', 'Precomputed stable changes; bypasses built-in comparison'],
         ['onChangeSelect', '(change) => void | false', '—', 'Runs before default Diff navigation'],
+        ['itemIdentity', 'DiffItemIdentityResolver', '—', 'Global array entity identity resolver'],
+        ['itemIdentityRules', 'readonly DiffItemIdentityRule[]', '[]', 'Exact array-path identity overrides'],
+        ['maxDiffNodes', 'number', '100000', 'Maximum inspected Diff operations'],
+        ['maxDiffDepth', 'number', '100', 'Maximum structural Diff depth'],
+        ['maxDiffResults', 'number', '10000', 'Maximum retained Diff changes'],
     ];
 </script>
 

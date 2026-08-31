@@ -78,7 +78,7 @@
         "@testing-library/svelte": "^5.4.2",
         "@testing-library/user-event": "^14.6.6",
         "@tsconfig/svelte": "^5.0.8",
-        "@types/node": "^24.0.0",
+        "@types/node": "^24.13.3",
         "ajv": "^8.20.0",
         "jsdom": "^30.0.1",
         "svelte": "^5.56.9",
@@ -87,7 +87,7 @@
         "valibot": "^1.4.2",
         "vite": "^8.2.1",
         "vitest": "^4.1.11",
-        "zod": "^4.4.3"
+        "zod": "^4.5.4"
     },
     "publishConfig": {
         "access": "public"

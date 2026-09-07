@@ -210,15 +210,15 @@ describe('json inspector Diff view', () => {
             data: { stable: 1, removed: true },
             expanded: 1,
             highlightUpdates: true,
-            updateHighlightDuration: 120,
+            updateHighlightDuration: 600,
         });
-        expect(document.querySelector('.sjd-inspector')?.getAttribute('style')).toContain('--sjd-update-highlight-duration: 120ms');
+        expect(document.querySelector('.sjd-inspector')?.getAttribute('style')).toContain('--sjd-update-highlight-duration: 600ms');
 
         await rendered.rerender({
             data: { stable: 2, added: true },
             expanded: 1,
             highlightUpdates: true,
-            updateHighlightDuration: 120,
+            updateHighlightDuration: 600,
         });
 
         await waitFor(() => expect(updateMarkerAt(document.body, ['stable'])?.getAttribute('aria-label')).toBe('Changed'));
@@ -234,7 +234,7 @@ describe('json inspector Diff view', () => {
         await waitFor(() => expect(document.activeElement?.getAttribute('data-json-path')).toBe('["added"]'));
         expect(screen.getByRole('region', { name: 'Current value' }).contains(document.activeElement)).toBe(true);
 
-        await new Promise(resolve => setTimeout(resolve, 140));
+        await new Promise(resolve => setTimeout(resolve, 650));
         await waitFor(() => expect(document.querySelector('.sjd-update-marker')).toBeNull());
         expect(document.querySelector('.sjd-inspector')?.getAttribute('data-change-source')).toBe('none');
         expect(screen.getByText('No changes.')).not.toBeNull();
@@ -397,19 +397,19 @@ describe('json inspector Diff view', () => {
             data: { value: 0 },
             expanded: 1,
             highlightUpdates: true,
-            updateHighlightDuration: 120,
+            updateHighlightDuration: 300,
         });
-        await rendered.rerender({ data: { value: 1 }, expanded: 1, highlightUpdates: true, updateHighlightDuration: 120 });
+        await rendered.rerender({ data: { value: 1 }, expanded: 1, highlightUpdates: true, updateHighlightDuration: 300 });
         await waitFor(() => expect(updateMarkerAt(document.body, ['value'])?.getAttribute('aria-label')).toBe('Changed'));
 
-        await new Promise(resolve => setTimeout(resolve, 70));
-        await rendered.rerender({ data: { value: 2 }, expanded: 1, highlightUpdates: true, updateHighlightDuration: 120 });
+        await new Promise(resolve => setTimeout(resolve, 150));
+        await rendered.rerender({ data: { value: 2 }, expanded: 1, highlightUpdates: true, updateHighlightDuration: 300 });
         await waitFor(() => expect(updateMarkerAt(document.body, ['value'])?.getAttribute('aria-label')).toBe('Changed'));
-        await new Promise(resolve => setTimeout(resolve, 70));
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         expect(document.querySelector('.sjd-inspector')?.getAttribute('data-change-source')).toBe('automatic');
         expect(updateMarkerAt(document.body, ['value'])?.getAttribute('aria-label')).toBe('Changed');
-        await new Promise(resolve => setTimeout(resolve, 70));
+        await new Promise(resolve => setTimeout(resolve, 200));
         await waitFor(() => expect(document.querySelector('.sjd-update-marker')).toBeNull());
     });
 });

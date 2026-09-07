@@ -25,6 +25,7 @@ jobs:
         run: pnpm dlx taze@latest minor -r -w
 
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm lint:fix
       - run: pnpm lint
       - run: pnpm build:lib
       - run: pnpm check

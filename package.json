@@ -2,7 +2,7 @@
     "name": "svelte-json-discovery-monorepo",
     "type": "module",
     "private": true,
-    "packageManager": "pnpm@10.34.5",
+    "packageManager": "pnpm@10.34.6",
     "scripts": {
         "build": "pnpm --filter svelte-json-discovery build && pnpm --filter docs build",
         "build:lib": "pnpm --filter svelte-json-discovery build",
@@ -19,12 +19,12 @@
         "deps:update": "taze -r -w && pnpm install"
     },
     "devDependencies": {
-        "@antfu/eslint-config": "^9.3.0",
+        "@antfu/eslint-config": "^9.5.1",
         "@changesets/cli": "^2.31.1",
-        "eslint": "^10.8.1",
+        "eslint": "^10.12.0",
         "eslint-plugin-svelte": "^3.23.0",
-        "svelte-eslint-parser": "^1.8.0",
-        "taze": "^20.0.1",
+        "svelte-eslint-parser": "^1.8.1",
+        "taze": "^20.0.2",
         "typescript": "~6.0.3"
     }
 }
